@@ -1,0 +1,85 @@
+name: media-stack
+
+x-arr: &arr
+  restart: unless-stopped
+  environment:
+    PUID: ${PUID:-1000}
+    PGID: ${PGID:-1000}
+    TZ: ${TZ:-Etc/UTC}
+
+services:
+  portal:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8088:80"
+    volumes:
+      - ./portal:/usr/share/nginx/html:ro
+
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8096:8096"
+    volumes:
+      - ./config/jellyfin:/config
+      - ./config/jellyfin-cache:/cache
+      - type: bind
+        source: ${DATA_DIR:-./data}/media
+        target: /data/media
+        read_only: true
+        bind:
+          create_host_path: false
+
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    init: true
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      LOG_LEVEL: info
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:5055:5055"
+    volumes:
+      # The image's node user owns this volume, independent of the host UID.
+      - seerr-config:/app/config
+
+  radarr:
+    <<: *arr
+    image: lscr.io/linuxserver/radarr:latest
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:7878:7878"
+    volumes:
+      - ./config/radarr:/config
+      - type: bind
+        source: ${DATA_DIR:-./data}
+        target: /data
+        bind:
+          create_host_path: false
+
+  sonarr:
+    <<: *arr
+    image: lscr.io/linuxserver/sonarr:latest
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8989:8989"
+    volumes:
+      - ./config/sonarr:/config
+      - type: bind
+        source: ${DATA_DIR:-./data}
+        target: /data
+        bind:
+          create_host_path: false
+
+  prowlarr:
+    <<: *arr
+    image: lscr.io/linuxserver/prowlarr:latest
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:9696:9696"
+    volumes:
+      - ./config/prowlarr:/config
+
+volumes:
+  seerr-config:

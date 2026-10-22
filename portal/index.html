@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Media Stack</title>
+<link rel="stylesheet" href="style.css">
+<script src="links.js" defer></script>
+</head>
+<body><main>
+<header><a class="wordmark" href="index.html">Media Stack</a><p>Your own place for movies and TV.</p></header>
+<section class="watch" aria-labelledby="watch-title">
+<div><p class="kicker">Make yourself at home</p><h1 id="watch-title">A good night in.</h1><p>Watch what’s in your library, or find something for next time.</p></div>
+<nav aria-label="Watch and discover">
+<a class="service featured" href="http://localhost:8096" data-port="8096" target="_blank" rel="noopener"><strong>Jellyfin</strong><span>Watch your library</span></a>
+<a class="service featured" href="http://localhost:5055" data-port="5055" target="_blank" rel="noopener"><strong>Seerr</strong><span>Discover and request</span></a>
+</nav>
+</section>
+<section aria-labelledby="manage-title"><h2 id="manage-title">Behind the scenes</h2><p class="muted">The tools that keep your library in order.</p>
+<nav class="tools" aria-label="Manage your library">
+<a class="service" href="http://localhost:7878" data-port="7878" target="_blank" rel="noopener"><strong>Radarr</strong><span>Movies</span></a>
+<a class="service" href="http://localhost:8989" data-port="8989" target="_blank" rel="noopener"><strong>Sonarr</strong><span>TV shows</span></a>
+<a class="service" href="http://localhost:9696" data-port="9696" target="_blank" rel="noopener"><strong>Prowlarr</strong><span>Search indexers</span></a>
+<a class="service" href="http://localhost:8080" data-port="8080" target="_blank" rel="noopener"><strong>qBittorrent</strong><span>Downloads · optional</span></a>
+</nav></section>
+<aside><div><h2>New here?</h2><p>Connect your apps once, then let them work together.</p></div><a class="button" href="guide.html">First-time setup</a></aside>
+<footer>Available on your home network. <span id="server"></span></footer>
+<noscript><p>JavaScript is off. Service links use localhost; replace it with your server’s address if you’re on another device.</p></noscript>
+</main></body></html>
