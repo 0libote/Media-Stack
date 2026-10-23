@@ -28,6 +28,7 @@ Change the `COMPOSE_FILE` line in `.env` to:
 
 ```dotenv
 COMPOSE_FILE=compose.yaml:compose.downloads.yaml
+DOWNLOADS_ENABLED=true
 ```
 
 Then validate and start:
@@ -41,7 +42,7 @@ docker compose logs gluetun
 
 The Linux host must have `/dev/net/tun` and permit `NET_ADMIN` for Gluetun. Some NAS or nested container environments need host configuration first. Gluetun stays unhealthy if the VPN cannot connect; qBittorrent then waits instead of starting on the normal network.
 
-Once Gluetun is healthy, follow step 4 in the portal’s **First-time setup**. Get qBittorrent’s temporary admin password from `docker compose logs qbittorrent` and replace it in the Web UI. Select `tun0` as its network interface.
+Once Gluetun is healthy, connect qBittorrent in the panel and use **Setup → Download clients** to create the categories and ARR connections. The manual guide’s step 4 covers the same settings if you prefer to do it yourself. Get qBittorrent’s temporary admin password from `docker compose logs qbittorrent` and replace it in the Web UI. Select `tun0` as its network interface.
 
 This setup does not configure provider port forwarding. No torrent port is published on the host. Outbound peer connections can still work; incoming connectivity depends on your provider and requires separate configuration.
 
@@ -63,11 +64,11 @@ To recreate the VPN namespace after changing its configuration, recreate both se
 docker compose up -d --force-recreate gluetun qbittorrent
 ```
 
-To disable downloads, stop and remove the optional containers *before* changing `.env` back to `COMPOSE_FILE=compose.yaml`:
+To disable downloads, stop and remove the optional containers _before_ changing `.env` back to `COMPOSE_FILE=compose.yaml`:
 
 ```bash
 docker compose stop qbittorrent gluetun
 docker compose rm -f qbittorrent gluetun
 ```
 
-Configuration and downloaded files stay on disk. The portal always shows the optional download link; it will be unavailable when those containers are disabled.
+Configuration and downloaded files stay on disk. Disconnect qBittorrent in the panel and set `DOWNLOADS_ENABLED=false` in `.env` when disabling downloads. The panel keeps downloads available as an optional connection.

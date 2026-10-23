@@ -5,7 +5,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location("media_setup", Path(__file__).resolve().parents[1] / "setup.py")
+spec = importlib.util.spec_from_file_location(
+    "media_setup", Path(__file__).resolve().parents[1] / "setup.py"
+)
 setup = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(setup)
 
@@ -45,8 +47,14 @@ class SetupTests(unittest.TestCase):
         self.assertIn("COMPOSE_FILE=compose.yaml\n", env)
         self.assertIn("PUID=1000\nPGID=1000\n", env)
         self.assertEqual(stat.S_IMODE((self.root / ".env").stat().st_mode), 0o600)
-        for path in ("config/jellyfin", "config/jellyfin-cache", "config/prowlarr",
-                     "data/media/movies", "data/media/tv", "data/torrents/incomplete"):
+        for path in (
+            "config/jellyfin",
+            "config/jellyfin-cache",
+            "config/prowlarr",
+            "data/media/movies",
+            "data/media/tv",
+            "data/torrents/incomplete",
+        ):
             self.assertTrue((self.root / path).is_dir(), path)
         self.assertFalse((self.root / "secrets").exists())
 
@@ -74,19 +82,27 @@ class SetupTests(unittest.TestCase):
         self.assertTrue(source.exists())
 
     def test_invalid_input_fails_before_writing_settings(self):
-        for settings in ({"bind_address": "server.local"}, {"timezone": "Etc/UTC\nEVIL=1"},
-                         {"data_dir": "bad\npath"}, {"data_dir": "$HOME/data"},
-                         {"data_dir": "."}, {"data_dir": "config/media"},
-                         {"data_dir": "secrets/media"}, {"data_dir": "portal/media"}):
+        for settings in (
+            {"bind_address": "server.local"},
+            {"timezone": "Etc/UTC\nEVIL=1"},
+            {"data_dir": "bad\npath"},
+            {"data_dir": "$HOME/data"},
+            {"data_dir": "."},
+            {"data_dir": "config/media"},
+            {"data_dir": "secrets/media"},
+            {"data_dir": "portal/media"},
+        ):
             with self.subTest(settings=settings), self.assertRaises(ValueError):
                 self.prepare(**settings)
             self.assertFalse((self.root / ".env").exists())
 
     def test_malformed_or_unsupported_vpn_fails_without_files(self):
         source = Path(self.temp.name) / "bad.conf"
-        for content in ("[Interface]\nAddress = 10.0.0.1/32\n",
-                        WIREGUARD.replace("203.0.113.1:51820", "vpn.example:51820"),
-                        WIREGUARD.replace(":51820", ":70000")):
+        for content in (
+            "[Interface]\nAddress = 10.0.0.1/32\n",
+            WIREGUARD.replace("203.0.113.1:51820", "vpn.example:51820"),
+            WIREGUARD.replace(":51820", ":70000"),
+        ):
             source.write_text(content)
             with self.subTest(content=content), self.assertRaises(ValueError):
                 self.prepare(vpn_config=source)
@@ -101,7 +117,12 @@ class SetupTests(unittest.TestCase):
 
     def test_invalid_vpn_errors_do_not_echo_secret_text(self):
         source = Path(self.temp.name) / "invalid.conf"
-        for text in ("[Interface]\nsecret-value-without-equals\n", WIREGUARD.replace("AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", "secret-value")):
+        for text in (
+            "[Interface]\nsecret-value-without-equals\n",
+            WIREGUARD.replace(
+                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", "secret-value"
+            ),
+        ):
             source.write_text(text)
             with self.assertRaises(ValueError) as caught:
                 setup.wireguard_config(source)
@@ -119,7 +140,10 @@ class SetupTests(unittest.TestCase):
         self.assertFalse((self.root / ".env").exists())
 
     def test_root_setup_is_rejected(self):
-        with patch.object(setup.os, "getuid", return_value=0), self.assertRaisesRegex(ValueError, "without sudo"):
+        with (
+            patch.object(setup.os, "getuid", return_value=0),
+            self.assertRaisesRegex(ValueError, "without sudo"),
+        ):
             self.prepare()
 
 

@@ -1,30 +1,884 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
-<title>Media Stack</title>
-<link rel="stylesheet" href="style.css">
-<script src="links.js" defer></script>
-</head>
-<body><main>
-<header><a class="wordmark" href="index.html">Media Stack</a><p>Your own place for movies and TV.</p></header>
-<section class="watch" aria-labelledby="watch-title">
-<div><p class="kicker">Make yourself at home</p><h1 id="watch-title">A good night in.</h1><p>Watch what’s in your library, or find something for next time.</p></div>
-<nav aria-label="Watch and discover">
-<a class="service featured" href="http://localhost:8096" data-port="8096" target="_blank" rel="noopener"><strong>Jellyfin</strong><span>Watch your library</span></a>
-<a class="service featured" href="http://localhost:5055" data-port="5055" target="_blank" rel="noopener"><strong>Seerr</strong><span>Discover and request</span></a>
-</nav>
-</section>
-<section aria-labelledby="manage-title"><h2 id="manage-title">Behind the scenes</h2><p class="muted">The tools that keep your library in order.</p>
-<nav class="tools" aria-label="Manage your library">
-<a class="service" href="http://localhost:7878" data-port="7878" target="_blank" rel="noopener"><strong>Radarr</strong><span>Movies</span></a>
-<a class="service" href="http://localhost:8989" data-port="8989" target="_blank" rel="noopener"><strong>Sonarr</strong><span>TV shows</span></a>
-<a class="service" href="http://localhost:9696" data-port="9696" target="_blank" rel="noopener"><strong>Prowlarr</strong><span>Search indexers</span></a>
-<a class="service" href="http://localhost:8080" data-port="8080" target="_blank" rel="noopener"><strong>qBittorrent</strong><span>Downloads · optional</span></a>
-</nav></section>
-<aside><div><h2>New here?</h2><p>Connect your apps once, then let them work together.</p></div><a class="button" href="guide.html">First-time setup</a></aside>
-<footer>Available on your home network. <span id="server"></span></footer>
-<noscript><p>JavaScript is off. Service links use localhost; replace it with your server’s address if you’re on another device.</p></noscript>
-</main></body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f5f6f9" />
+    <title>Media Stack</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <svg
+      class="icon-definitions"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <defs>
+        <symbol id="i-overview" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
+        </symbol>
+        <symbol id="i-link" viewBox="0 0 24 24">
+          <path
+            d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 2 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"
+            transform="translate(1 1)"
+          />
+        </symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24">
+          <path
+            d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"
+          />
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+          <path d="m5 12 4 4L19 6" />
+        </symbol>
+        <symbol id="i-setup" viewBox="0 0 24 24">
+          <path d="m4 6 2 2 3-4m3 2h8M4 14l2 2 3-4m3 2h8M4 21h16" />
+        </symbol>
+        <symbol id="i-external" viewBox="0 0 24 24">
+          <path
+            d="M14 3h7v7m0-7L10 14m8 0v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"
+          />
+        </symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24">
+          <path d="M20 8a8 8 0 1 0 0 8m0-14v6h-6" />
+        </symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24">
+          <path d="m9 5 7 7-7 7" />
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+          <circle cx="8" cy="6" r="2" />
+          <circle cx="16" cy="12" r="2" />
+          <circle cx="10" cy="18" r="2" />
+        </symbol>
+        <symbol id="i-logout" viewBox="0 0 24 24">
+          <path d="M9 4H4v16h5m3-8h9m-4-4 4 4-4 4" />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24">
+          <path d="m6 6 12 12M6 18 18 6" />
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+          <path d="m12 3 10 18H2L12 3zm0 6v5m0 3v1" />
+        </symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24">
+          <rect x="8" y="8" width="12" height="13" rx="2" />
+          <path d="M16 8V3H3v13h5" />
+        </symbol>
+        <symbol id="i-server" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="18" height="7" rx="2" />
+          <rect x="3" y="14" width="18" height="7" rx="2" />
+          <path d="M7 6h.01M7 17h.01m5-11h5m-5 11h5" />
+        </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24">
+          <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />
+        </symbol>
+      </defs>
+    </svg>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div id="auth-screen" class="auth-screen">
+      <section class="auth-panel" aria-labelledby="auth-title">
+        <a class="brand" href="/"
+          ><img src="favicon.svg" alt="" width="36" height="36" />Media Stack</a
+        >
+        <h1 id="auth-title">Opening your stack…</h1>
+        <p id="auth-description" class="subtle">
+          Connecting to the control panel.
+        </p>
+        <form id="auth-form" hidden>
+          <div id="setup-code-field" hidden>
+            <label for="setup-code">Setup code</label
+            ><input
+              id="setup-code"
+              name="code"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <p class="field-help">
+              On your server, run <code>cat config/portal/setup-code</code> from
+              the repo folder. The code is used once.
+            </p>
+          </div>
+          <label for="auth-password">Administrator password</label
+          ><input
+            id="auth-password"
+            name="password"
+            type="password"
+            required
+            autocomplete="current-password"
+            maxlength="128"
+          />
+          <p id="password-help" class="field-help" hidden>
+            Use at least 12 characters. This password is only for the control
+            panel.
+          </p>
+          <div id="confirm-password-field" hidden>
+            <label for="auth-confirm">Confirm password</label
+            ><input
+              id="auth-confirm"
+              type="password"
+              autocomplete="new-password"
+              maxlength="128"
+            />
+          </div>
+          <div id="auth-error" class="message error" role="alert" hidden></div>
+          <button id="auth-submit" class="button primary full" type="submit">
+            Sign in
+          </button>
+        </form>
+      </section>
+    </div>
+    <div id="shell" class="shell" hidden>
+      <aside class="sidebar">
+        <a class="brand" href="#overview"
+          ><img src="favicon.svg" alt="" width="32" height="32" />Media Stack</a
+        >
+        <nav aria-label="Main navigation" class="main-nav">
+          <a href="#overview" data-route="overview"
+            ><svg class="icon"><use href="#i-overview" /></svg>Overview</a
+          >
+          <a href="#connections" data-route="connections"
+            ><svg class="icon"><use href="#i-link" /></svg>Connections<span
+              id="connection-count"
+              class="nav-count"
+            ></span
+          ></a>
+          <a href="#storage" data-route="storage"
+            ><svg class="icon"><use href="#i-folder" /></svg>Storage</a
+          >
+          <a href="#setup" data-route="setup"
+            ><svg class="icon"><use href="#i-setup" /></svg>Setup</a
+          >
+        </nav>
+        <div class="sidebar-bottom">
+          <a href="guide.html" class="quiet-link" target="_blank" rel="noopener"
+            >Manual setup guide<svg class="icon small">
+              <use href="#i-external" /></svg
+          ></a>
+          <a href="#settings" data-route="settings" class="quiet-link"
+            ><svg class="icon"><use href="#i-settings" /></svg>Panel settings</a
+          >
+          <div class="server-label">
+            <svg class="icon"><use href="#i-server" /></svg>
+            <div>
+              <strong id="server-name">Your server</strong
+              ><span>Administrator</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div class="workspace">
+        <header class="topbar">
+          <span id="page-name">Overview</span>
+          <div>
+            <span id="last-checked" class="subtle">Waiting for status</span
+            ><button
+              class="icon-button"
+              id="refresh"
+              title="Refresh status"
+              aria-label="Refresh status"
+            >
+              <svg class="icon"><use href="#i-refresh" /></svg></button
+            ><a
+              href="#settings"
+              class="icon-button"
+              aria-label="Panel settings"
+              title="Panel settings"
+              ><svg class="icon"><use href="#i-settings" /></svg
+            ></a>
+          </div>
+        </header>
+        <main id="main" tabindex="-1">
+          <div
+            id="global-error"
+            class="message error"
+            role="alert"
+            hidden
+          ></div>
+          <section
+            id="view-overview"
+            class="view"
+            aria-labelledby="overview-title"
+          >
+            <div class="page-heading">
+              <div>
+                <h1 id="overview-title">Overview</h1>
+                <p>
+                  What’s running, what’s in your library, and what needs
+                  attention.
+                </p>
+              </div>
+              <a class="button" href="#setup"
+                >Set up your stack<svg class="icon small">
+                  <use href="#i-chevron" /></svg
+              ></a>
+            </div>
+            <div id="onboarding" class="setup-notice" hidden></div>
+            <section
+              class="stat-strip"
+              aria-label="Live library statistics"
+              id="library-stats"
+            ></section>
+            <div class="overview-columns">
+              <div class="primary-column">
+                <section class="panel">
+                  <div class="panel-heading">
+                    <div>
+                      <h2>Your apps</h2>
+                      <p>Open an app or manage its connection.</p>
+                    </div>
+                    <span id="online-count" class="subtle"></span>
+                  </div>
+                  <div id="service-list" class="service-list"></div>
+                </section>
+                <section class="panel">
+                  <div class="panel-heading">
+                    <div>
+                      <h2>Downloads</h2>
+                      <p id="download-summary">Activity from qBittorrent.</p>
+                    </div>
+                    <svg class="icon"><use href="#i-download" /></svg>
+                  </div>
+                  <div id="download-list"></div>
+                </section>
+                <section id="health-panel" class="panel" hidden>
+                  <div class="panel-heading"><h2>Needs attention</h2></div>
+                  <div id="health-list"></div>
+                </section>
+              </div>
+              <div class="secondary-column">
+                <section class="panel storage-summary">
+                  <div class="panel-heading">
+                    <h2>Storage</h2>
+                    <a href="#storage" class="text-link">Manage</a>
+                  </div>
+                  <div id="storage-summary"></div>
+                </section>
+                <section class="panel">
+                  <div class="panel-heading">
+                    <div>
+                      <h2>Panel activity</h2>
+                      <p>Changes made through Media Stack.</p>
+                    </div>
+                  </div>
+                  <div id="activity-list" class="activity-list"></div>
+                </section>
+              </div>
+            </div>
+            <p class="page-footnote">
+              Stats come from connected apps. Status refreshes every 30 seconds
+              while this page is open.
+            </p>
+          </section>
+          <section
+            id="view-connections"
+            class="view"
+            aria-labelledby="connections-title"
+            hidden
+          >
+            <div class="page-heading">
+              <div>
+                <h1 id="connections-title">Connections</h1>
+                <p>
+                  Give the panel access to your apps. Keys stay on your server.
+                </p>
+              </div>
+            </div>
+            <div class="discovery-bar">
+              <div>
+                <strong>Using this repo’s Docker stack?</strong>
+                <p>
+                  Connect Radarr, Sonarr, Prowlarr, and Seerr using their local
+                  API keys.
+                </p>
+              </div>
+              <button id="discover" class="button">Connect local apps</button>
+            </div>
+            <div
+              id="discovery-results"
+              class="message"
+              role="status"
+              hidden
+            ></div>
+            <div class="connection-layout">
+              <div
+                id="connection-list"
+                class="connection-list"
+                aria-label="Choose an app"
+              ></div>
+              <section
+                class="panel connection-editor"
+                aria-labelledby="connection-title"
+              >
+                <div class="panel-heading">
+                  <div class="app-heading">
+                    <span id="connection-mark" class="app-mark"></span>
+                    <div>
+                      <h2 id="connection-title">Choose an app</h2>
+                      <p id="connection-description"></p>
+                    </div>
+                  </div>
+                  <a
+                    id="connection-open"
+                    class="text-link"
+                    href="#"
+                    target="_blank"
+                    rel="noopener"
+                    >Open app<svg class="icon small">
+                      <use href="#i-external" /></svg
+                  ></a>
+                </div>
+                <form id="connection-form" class="form-body">
+                  <label for="service-url">Internal address</label
+                  ><input
+                    id="service-url"
+                    name="url"
+                    type="url"
+                    required
+                    spellcheck="false"
+                    autocomplete="off"
+                  />
+                  <p class="field-help">
+                    The address other containers use to reach this app. In this
+                    stack, use its service name, not localhost.
+                  </p>
+                  <div id="key-fields">
+                    <label for="key-source">API key</label
+                    ><select id="key-source" name="key_source">
+                      <option value="manual">Enter an API key</option>
+                      <option value="local">
+                        Use the installed app’s local key
+                      </option>
+                    </select>
+                    <div id="manual-key-field">
+                      <label class="sr-only" for="api-key">API key value</label
+                      ><input
+                        id="api-key"
+                        name="api_key"
+                        type="password"
+                        autocomplete="off"
+                        spellcheck="false"
+                      />
+                      <p class="field-help" id="key-help"></p>
+                    </div>
+                    <p id="local-key-help" class="field-help" hidden>
+                      Read from the app’s configuration when needed. The panel
+                      never sends this key to your browser.
+                    </p>
+                  </div>
+                  <div id="qbit-fields" hidden>
+                    <label for="qbit-username">qBittorrent username</label
+                    ><input
+                      id="qbit-username"
+                      name="username"
+                      autocomplete="off"
+                    /><label for="qbit-password">qBittorrent password</label
+                    ><input
+                      id="qbit-password"
+                      name="password"
+                      type="password"
+                      autocomplete="off"
+                    />
+                    <p class="field-help">
+                      Use your permanent Web UI password. The initial temporary
+                      password appears in the qBittorrent container logs.
+                    </p>
+                  </div>
+                  <details class="advanced">
+                    <summary>Browser address (optional)</summary>
+                    <label for="public-url"
+                      >Address to open from your devices</label
+                    ><input
+                      id="public-url"
+                      name="public_url"
+                      type="url"
+                      spellcheck="false"
+                      placeholder="Leave empty to use this server and the app’s port"
+                    />
+                    <p class="field-help">
+                      Set this if you use a different port, hostname, or reverse
+                      proxy. It does not change the internal connection.
+                    </p>
+                  </details>
+                  <div
+                    id="connection-result"
+                    class="message"
+                    role="status"
+                    hidden
+                  ></div>
+                  <div class="form-actions">
+                    <button
+                      class="button primary"
+                      id="save-connection"
+                      type="submit"
+                    >
+                      Save connection</button
+                    ><button class="button" id="test-connection" type="button">
+                      Test connection</button
+                    ><button
+                      class="button danger-text push-right"
+                      id="disconnect"
+                      type="button"
+                      hidden
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
+            <div class="help-block">
+              <h2>Connecting the apps to each other</h2>
+              <p>
+                These connections let the panel read status and manage settings.
+                Once they’re saved, go to <a href="#setup">Setup</a> to link
+                download clients, indexers, and requests.
+              </p>
+            </div>
+          </section>
+          <section
+            id="view-storage"
+            class="view"
+            aria-labelledby="storage-title"
+            hidden
+          >
+            <div class="page-heading">
+              <div>
+                <h1 id="storage-title">Storage</h1>
+                <p>One shared location, with the same paths in every app.</p>
+              </div>
+            </div>
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Your data folder</h2>
+                  <p>
+                    The folder mounted into the stack. Change the host mount in
+                    .env if you need another disk.
+                  </p>
+                </div>
+              </div>
+              <div class="mount-map">
+                <div>
+                  <span>On your server</span
+                  ><code id="host-data-path">Defined by DATA_DIR in .env</code>
+                </div>
+                <svg class="icon"><use href="#i-chevron" /></svg>
+                <div><span>Inside the apps</span><code>/data</code></div>
+              </div>
+              <div id="disk-detail" class="disk-detail"></div>
+            </section>
+            <div class="storage-columns">
+              <section class="panel">
+                <div class="panel-heading">
+                  <div>
+                    <h2>Library locations</h2>
+                    <p>Choose where finished media belongs.</p>
+                  </div>
+                </div>
+                <form id="locations-form" class="form-body">
+                  <label for="movies-path">Movies</label>
+                  <div class="input-action">
+                    <input
+                      id="movies-path"
+                      name="movies"
+                      required
+                      spellcheck="false"
+                    /><button
+                      type="button"
+                      class="button browse-folder"
+                      data-input="movies-path"
+                    >
+                      Browse
+                    </button>
+                  </div>
+                  <div id="movies-path-status" class="field-help"></div>
+                  <label for="tv-path">TV shows</label>
+                  <div class="input-action">
+                    <input
+                      id="tv-path"
+                      name="tv"
+                      required
+                      spellcheck="false"
+                    /><button
+                      type="button"
+                      class="button browse-folder"
+                      data-input="tv-path"
+                    >
+                      Browse
+                    </button>
+                  </div>
+                  <div id="tv-path-status" class="field-help"></div>
+                  <p class="field-help location-note">
+                    Saving records your preferred locations. Then review setup
+                    to create missing folders and add them to the apps. Existing
+                    media stays where it is.
+                  </p>
+                  <div
+                    id="locations-result"
+                    class="message"
+                    role="status"
+                    hidden
+                  ></div>
+                  <div class="form-actions">
+                    <button class="button primary" type="submit">
+                      Save locations</button
+                    ><a class="button" href="#setup">Review folder setup</a>
+                  </div>
+                </form>
+              </section>
+              <section class="panel">
+                <div class="panel-heading">
+                  <div>
+                    <h2>Import check</h2>
+                    <p>
+                      Find permission and filesystem issues before your first
+                      download.
+                    </p>
+                  </div>
+                </div>
+                <div class="form-body">
+                  <p>
+                    Checks write access and hardlinks from
+                    <code>/data/torrents/incomplete</code> to both library
+                    folders using temporary files, then removes them.
+                  </p>
+                  <button id="check-storage" class="button">
+                    Check folders
+                  </button>
+                  <div
+                    id="storage-check-result"
+                    role="status"
+                    class="check-results"
+                  ></div>
+                  <p class="field-help">
+                    Hardlinks let imports finish without copying the whole file.
+                    They need one filesystem and write access.
+                  </p>
+                </div>
+              </section>
+            </div>
+            <section class="help-block">
+              <h2>Where downloads go</h2>
+              <div class="path-reference">
+                <span>Movies</span><code>/data/torrents/movies</code
+                ><span>TV shows</span><code>/data/torrents/tv</code
+                ><span>Incomplete</span><code>/data/torrents/incomplete</code>
+              </div>
+              <p>
+                Radarr and Sonarr see the same paths as qBittorrent, so this
+                stack does not need remote path mappings. Keep downloads and
+                libraries on the same filesystem to use hardlinks.
+              </p>
+            </section>
+          </section>
+          <section
+            id="view-setup"
+            class="view"
+            aria-labelledby="setup-title"
+            hidden
+          >
+            <div class="page-heading">
+              <div>
+                <h1 id="setup-title">Setup</h1>
+                <p>
+                  Review the settings, then let Media Stack make the
+                  connections.
+                </p>
+              </div>
+            </div>
+            <ol class="setup-sequence">
+              <li>
+                <a href="#connections"><span>1</span>Connect your apps</a>
+              </li>
+              <li>
+                <a href="#storage"><span>2</span>Choose locations</a>
+              </li>
+              <li aria-current="step"><span>3</span>Link everything</li>
+            </ol>
+            <div class="message info">
+              <strong
+                >Finish the initial Jellyfin and Seerr sign-in first.</strong
+              >
+              <p>
+                Use their own setup screens to create your accounts and connect
+                Seerr to Jellyfin. Seerr needs at least one enabled Jellyfin
+                library. If you skipped creating libraries, add them below, then
+                finish Seerr’s sign-in. The panel handles the ARR connections
+                below.
+              </p>
+              <div class="inline-actions">
+                <a
+                  id="setup-jellyfin"
+                  class="text-link"
+                  href="#"
+                  target="_blank"
+                  rel="noopener"
+                  >Open Jellyfin<svg class="icon small">
+                    <use href="#i-external" /></svg></a
+                ><a
+                  id="setup-seerr"
+                  class="text-link"
+                  href="#"
+                  target="_blank"
+                  rel="noopener"
+                  >Open Seerr<svg class="icon small">
+                    <use href="#i-external" /></svg
+                ></a>
+              </div>
+            </div>
+            <form id="setup-form" class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Choose what to configure</h2>
+                  <p>
+                    Existing connections and libraries are kept. Nothing is
+                    downloaded by these steps.
+                  </p>
+                </div>
+              </div>
+              <label class="task-choice"
+                ><input type="checkbox" name="folders" checked /><span
+                  ><strong>Library and download folders</strong
+                  ><small
+                    >Create missing folders and add movie/TV roots to Radarr and
+                    Sonarr.</small
+                  ></span
+                ></label
+              >
+              <label class="task-choice"
+                ><input type="checkbox" name="libraries" /><span
+                  ><strong>Jellyfin libraries</strong
+                  ><small
+                    >Add a Movies and TV Shows library if the chosen paths
+                    aren’t already included.</small
+                  ></span
+                ></label
+              >
+              <label class="task-choice"
+                ><input type="checkbox" name="indexers" checked /><span
+                  ><strong>Indexer sync</strong
+                  ><small
+                    >Link Prowlarr to Radarr and Sonarr. You choose indexers in
+                    Prowlarr.</small
+                  ></span
+                ></label
+              >
+              <label class="task-choice"
+                ><input type="checkbox" name="downloads" /><span
+                  ><strong>Download clients</strong
+                  ><small
+                    >Create movies/TV download categories and connect Radarr and
+                    Sonarr to qBittorrent.</small
+                  ></span
+                ></label
+              >
+              <label class="task-choice"
+                ><input type="checkbox" name="requests" /><span
+                  ><strong>Requests from Seerr</strong
+                  ><small
+                    >Connect Seerr to Radarr and Sonarr using your chosen
+                    quality profiles.</small
+                  ></span
+                ></label
+              >
+              <div id="profile-fields" class="profile-fields" hidden>
+                <div>
+                  <label for="radarr-profile">Movie quality profile</label
+                  ><select id="radarr-profile">
+                    <option value="">Choose a profile</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="sonarr-profile">TV quality profile</label
+                  ><select id="sonarr-profile">
+                    <option value="">Choose a profile</option>
+                  </select>
+                </div>
+                <p id="profile-help" class="field-help">
+                  Profiles come from Radarr and Sonarr. Choose what fits your
+                  devices and storage.
+                </p>
+              </div>
+              <div class="form-actions padded">
+                <button id="review-setup" class="button primary" type="submit">
+                  Review changes</button
+                ><span class="field-help"
+                  >Nothing changes until you apply the review.</span
+                >
+              </div>
+            </form>
+            <section
+              id="setup-review"
+              class="panel review-panel"
+              hidden
+              aria-labelledby="review-title"
+            >
+              <div class="panel-heading">
+                <div>
+                  <h2 id="review-title">Review changes</h2>
+                  <p id="review-description"></p>
+                </div>
+              </div>
+              <div id="review-steps" class="review-steps"></div>
+              <div class="form-actions padded">
+                <button id="apply-setup" class="button primary">
+                  Apply changes</button
+                ><span id="review-warning" class="field-help"></span>
+              </div>
+            </section>
+            <div id="setup-result" class="message" role="status" hidden></div>
+            <div class="help-block">
+              <h2>After linking</h2>
+              <p>
+                Add your indexers in Prowlarr and choose your library quality
+                settings. Try one request for media you have permission to
+                download, then check that it imports and appears in Jellyfin.
+                VPN credentials and container mounts are configured on the host;
+                this panel does not change them.
+              </p>
+            </div>
+          </section>
+          <section
+            id="view-settings"
+            class="view"
+            aria-labelledby="settings-title"
+            hidden
+          >
+            <div class="page-heading">
+              <div>
+                <h1 id="settings-title">Panel settings</h1>
+                <p>Administrator access for this control panel.</p>
+              </div>
+              <button id="logout" class="button">
+                <svg class="icon small"><use href="#i-logout" /></svg>Sign out
+              </button>
+            </div>
+            <section class="panel settings-panel">
+              <div class="panel-heading"><h2>Change password</h2></div>
+              <form id="password-form" class="form-body">
+                <label for="current-password">Current password</label
+                ><input
+                  id="current-password"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  maxlength="128"
+                /><label for="new-password">New password</label
+                ><input
+                  id="new-password"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="12"
+                  maxlength="128"
+                  required
+                />
+                <p class="field-help">
+                  At least 12 characters. Changing it signs out other panel
+                  sessions.
+                </p>
+                <label for="new-password-confirm">Confirm new password</label
+                ><input
+                  id="new-password-confirm"
+                  type="password"
+                  autocomplete="new-password"
+                  required
+                  maxlength="128"
+                />
+                <div
+                  id="password-result"
+                  class="message"
+                  role="status"
+                  hidden
+                ></div>
+                <button class="button primary" type="submit">
+                  Update password
+                </button>
+              </form>
+            </section>
+            <section class="help-block">
+              <h2>About this panel</h2>
+              <p>
+                Service status, library totals, and download activity are read
+                from your connected apps. Saved keys and panel settings live in
+                <code>config/portal</code> on the server. Keep that folder
+                private and include it in your backups.
+              </p>
+              <p>
+                The control panel does not have access to Docker’s socket.
+                Container restarts, VPN credentials, and disk mounts are managed
+                on the host.
+              </p>
+              <p>
+                <a href="guide.html" target="_blank" rel="noopener"
+                  >Open the manual setup guide</a
+                >
+              </p>
+            </section>
+          </section>
+        </main>
+      </div>
+    </div>
+    <dialog id="folder-dialog" aria-labelledby="folder-dialog-title">
+      <div class="dialog-heading">
+        <h2 id="folder-dialog-title">Choose a folder</h2>
+        <button
+          type="button"
+          class="icon-button close-dialog"
+          aria-label="Close folder browser"
+        >
+          <svg class="icon"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <p class="subtle">Browse folders inside the shared data mount.</p>
+      <div class="browser-location">
+        <button id="folder-up" class="button small-button">Up</button
+        ><code id="browser-path">/data</code>
+      </div>
+      <div id="folder-list" class="folder-list"></div>
+      <div id="browser-error" class="message error" role="alert" hidden></div>
+      <div class="form-actions">
+        <button class="button primary" id="choose-folder">
+          Use this folder</button
+        ><button class="button close-dialog">Cancel</button>
+      </div>
+      <p class="field-help">
+        To use a folder that doesn’t exist yet, enter its path directly in the
+        location field.
+      </p>
+    </dialog>
+    <dialog id="disconnect-dialog" aria-labelledby="disconnect-title">
+      <div class="dialog-heading">
+        <h2 id="disconnect-title">Disconnect this app?</h2>
+        <button
+          type="button"
+          class="icon-button close-dialog"
+          aria-label="Close confirmation"
+        >
+          <svg class="icon"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <p>
+        The panel will stop reading this app and forget its saved credentials.
+        Its library, settings, and connections to other apps stay in place.
+      </p>
+      <div class="form-actions">
+        <button id="confirm-disconnect" class="button danger">
+          Disconnect from panel</button
+        ><button class="button close-dialog">Keep connection</button>
+      </div>
+    </dialog>
+    <div id="toast" role="status" class="toast" hidden></div>
+    <noscript
+      ><p class="noscript">
+        Enable JavaScript to use the control panel. The
+        <a href="guide.html">manual setup guide</a> is available without it.
+      </p></noscript
+    >
+  </body>
+</html>

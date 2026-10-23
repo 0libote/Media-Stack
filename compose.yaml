@@ -9,12 +9,34 @@ x-arr: &arr
 
 services:
   portal:
-    image: nginx:stable-alpine
+    build: .
     restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      DATA_HOST_PATH: ${DATA_DIR:-./data}
+      DOWNLOADS_ENABLED: ${DOWNLOADS_ENABLED:-false}
+      PANEL_COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-0}
+      PANEL_TRUST_PROXY: ${PANEL_TRUST_PROXY:-0}
     ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:8088:80"
+      - "${BIND_ADDRESS:-127.0.0.1}:8088:8088"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
     volumes:
-      - ./portal:/usr/share/nginx/html:ro
+      - ./config/portal:/state
+      - ./config/radarr:/connections/radarr:ro
+      - ./config/sonarr:/connections/sonarr:ro
+      - ./config/prowlarr:/connections/prowlarr:ro
+      - seerr-config:/connections/seerr:ro
+      - type: bind
+        source: ${DATA_DIR:-./data}
+        target: /data
+        bind:
+          create_host_path: false
 
   jellyfin:
     image: jellyfin/jellyfin:latest
@@ -28,8 +50,8 @@ services:
       - ./config/jellyfin:/config
       - ./config/jellyfin-cache:/cache
       - type: bind
-        source: ${DATA_DIR:-./data}/media
-        target: /data/media
+        source: ${DATA_DIR:-./data}
+        target: /data
         read_only: true
         bind:
           create_host_path: false

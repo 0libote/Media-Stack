@@ -1,0 +1,7 @@
+*
+!requirements.txt
+!control/
+!control/*.py
+!portal/
+!portal/**
+**/__pycache__

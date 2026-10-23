@@ -1,18 +1,198 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark">
-<title>First-time setup · Media Stack</title><link rel="stylesheet" href="style.css"><script src="links.js" defer></script>
-</head>
-<body><main class="guide">
-<header><a class="wordmark" href="index.html">Media Stack</a><a href="index.html">Back to your apps</a></header>
-<h1>Get your apps talking.</h1><p class="intro">Start with Jellyfin. Add the library tools when you’re ready. Each app keeps its own account and settings.</p>
-<article><h2>1. Give Jellyfin a library</h2><p><a href="http://localhost:8096" data-port="8096" target="_blank" rel="noopener">Open Jellyfin</a>, choose a language and create your administrator account. Add a Movies library at <code>/data/media/movies</code> and a Shows library at <code>/data/media/tv</code>.</p><p>Files go in your chosen data folder on the server, under <code>media/movies</code> or <code>media/tv</code>. Jellyfin can read your library but cannot delete the media files through this install.</p></article>
-<article><h2>2. Set up movies and shows</h2><p>Open <a href="http://localhost:7878" data-port="7878" target="_blank" rel="noopener">Radarr</a> and <a href="http://localhost:8989" data-port="8989" target="_blank" rel="noopener">Sonarr</a>. Create a login in each app. In Settings → Media Management, add the root folders below. Enable hardlinks instead of copying when available.</p><table><thead><tr><th>App</th><th>Root folder</th></tr></thead><tbody><tr><td>Radarr</td><td><code>/data/media/movies</code></td></tr><tr><td>Sonarr</td><td><code>/data/media/tv</code></td></tr></tbody></table><p>Import an existing library with Library Import. Choose a quality profile that fits your storage and connection.</p></article>
-<article><h2>3. Add search with Prowlarr</h2><p>Open <a href="http://localhost:9696" data-port="9696" target="_blank" rel="noopener">Prowlarr</a>, create a login and add the indexers you use. In Settings → Apps, add Radarr and Sonarr with Full Sync.</p><ul><li>Prowlarr server: <code>http://prowlarr:9696</code></li><li>Radarr server: <code>http://radarr:7878</code></li><li>Sonarr server: <code>http://sonarr:8989</code></li></ul><p>Get each app’s API key from its Settings → General page. Test each connection before saving. Keep these keys private.</p></article>
-<article><h2>4. Connect downloads (optional)</h2><p>This step needs the VPN downloads option enabled during setup. See <code>docs/downloads.md</code> in the repository to add it later. Without it, skip this step and use your existing library.</p><p>On the server, run <code>docker compose logs qbittorrent</code> to find the temporary password. Open <a href="http://localhost:8080" data-port="8080" target="_blank" rel="noopener">qBittorrent</a>, sign in as <code>admin</code>, and immediately set a permanent password in its Web UI settings.</p><ul><li>Default save path: <code>/data/torrents</code></li><li>Incomplete downloads: <code>/data/torrents/incomplete</code></li><li>Create category <code>movies</code> with save path <code>/data/torrents/movies</code>.</li><li>Create category <code>tv</code> with save path <code>/data/torrents/tv</code>.</li><li>In Advanced settings, select <code>tun0</code> as the network interface. Gluetun uses this for the VPN tunnel.</li></ul><p>In Radarr and Sonarr, go to Settings → Download Clients and add qBittorrent with host <code>gluetun</code>, port <code>8080</code>, and your qBittorrent login. Use category <code>movies</code> for Radarr and <code>tv</code> for Sonarr. Test and save. Keep completed download handling enabled.</p><p>The apps share the same paths, so no remote path mapping is needed. A working VPN connection is required for qBittorrent to start.</p></article>
-<article><h2>5. Make requests with Seerr</h2><p>Open <a href="http://localhost:5055" data-port="5055" target="_blank" rel="noopener">Seerr</a>, choose Jellyfin and connect to <code>http://jellyfin:8096</code>. Sign in with your Jellyfin administrator account and sync your libraries.</p><p>Add Radarr at <code>http://radarr:7878</code> and Sonarr at <code>http://sonarr:8989</code> using their API keys. Select the root folders from step 2, quality profiles, and a default server for each. Set the external Jellyfin URL to the address you use in your browser.</p><p>Try one request for media you’re allowed to download. With downloads configured, check it reaches the right app, finishes in qBittorrent, imports into your library, and appears in Jellyfin.</p></article>
-<h2>Which address goes where?</h2><p>In your browser, use your server’s address and the app’s port. When connecting one app to another, use the service names shown above. <code>localhost</code> inside a container means that container.</p>
-<p>Keep this stack on a trusted home network. Complete the account setup before sharing access. The portal lists links; it does not check whether an app is running. Downloads, if enabled, use the VPN; the other apps use your normal connection.</p>
-<footer><a href="index.html">Back to Media Stack</a></footer>
-</main></body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>First-time setup · Media Stack</title>
+    <link rel="stylesheet" href="guide.css" />
+    <script src="links.js" defer></script>
+  </head>
+  <body>
+    <main class="guide">
+      <header>
+        <a class="wordmark" href="index.html">Media Stack</a
+        ><a href="index.html">Back to your apps</a>
+      </header>
+      <h1>Manual setup</h1>
+      <p class="intro">
+        Use these steps to configure each app yourself. The control panel’s
+        <a href="/#setup">Setup page</a> can create most of these links for you.
+        Each app keeps its own account and settings.
+      </p>
+      <article>
+        <h2>1. Give Jellyfin a library</h2>
+        <p>
+          <a
+            href="http://localhost:8096"
+            data-port="8096"
+            target="_blank"
+            rel="noopener"
+            >Open Jellyfin</a
+          >, choose a language and create your administrator account. Add a
+          Movies library at <code>/data/media/movies</code> and a Shows library
+          at <code>/data/media/tv</code>.
+        </p>
+        <p>
+          Files go in your chosen data folder on the server, under
+          <code>media/movies</code> or <code>media/tv</code>. Jellyfin can read
+          your library but cannot delete the media files through this install.
+        </p>
+      </article>
+      <article>
+        <h2>2. Set up movies and shows</h2>
+        <p>
+          Open
+          <a
+            href="http://localhost:7878"
+            data-port="7878"
+            target="_blank"
+            rel="noopener"
+            >Radarr</a
+          >
+          and
+          <a
+            href="http://localhost:8989"
+            data-port="8989"
+            target="_blank"
+            rel="noopener"
+            >Sonarr</a
+          >. Create a login in each app. In Settings → Media Management, add the
+          root folders below. Enable hardlinks instead of copying when
+          available.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>App</th>
+              <th>Root folder</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Radarr</td>
+              <td><code>/data/media/movies</code></td>
+            </tr>
+            <tr>
+              <td>Sonarr</td>
+              <td><code>/data/media/tv</code></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Import an existing library with Library Import. Choose a quality
+          profile that fits your storage and connection.
+        </p>
+      </article>
+      <article>
+        <h2>3. Add search with Prowlarr</h2>
+        <p>
+          Open
+          <a
+            href="http://localhost:9696"
+            data-port="9696"
+            target="_blank"
+            rel="noopener"
+            >Prowlarr</a
+          >, create a login and add the indexers you use. In Settings → Apps,
+          add Radarr and Sonarr with Full Sync.
+        </p>
+        <ul>
+          <li>Prowlarr server: <code>http://prowlarr:9696</code></li>
+          <li>Radarr server: <code>http://radarr:7878</code></li>
+          <li>Sonarr server: <code>http://sonarr:8989</code></li>
+        </ul>
+        <p>
+          Get each app’s API key from its Settings → General page. Test each
+          connection before saving. Keep these keys private.
+        </p>
+      </article>
+      <article>
+        <h2>4. Connect downloads (optional)</h2>
+        <p>
+          This step needs the VPN downloads option enabled during setup. See
+          <code>docs/downloads.md</code> in the repository to add it later.
+          Without it, skip this step and use your existing library.
+        </p>
+        <p>
+          On the server, run <code>docker compose logs qbittorrent</code> to
+          find the temporary password. Open
+          <a
+            href="http://localhost:8080"
+            data-port="8080"
+            target="_blank"
+            rel="noopener"
+            >qBittorrent</a
+          >, sign in as <code>admin</code>, and immediately set a permanent
+          password in its Web UI settings.
+        </p>
+        <ul>
+          <li>Default save path: <code>/data/torrents</code></li>
+          <li>Incomplete downloads: <code>/data/torrents/incomplete</code></li>
+          <li>
+            Create category <code>movies</code> with save path
+            <code>/data/torrents/movies</code>.
+          </li>
+          <li>
+            Create category <code>tv</code> with save path
+            <code>/data/torrents/tv</code>.
+          </li>
+          <li>
+            In Advanced settings, select <code>tun0</code> as the network
+            interface. Gluetun uses this for the VPN tunnel.
+          </li>
+        </ul>
+        <p>
+          In Radarr and Sonarr, go to Settings → Download Clients and add
+          qBittorrent with host <code>gluetun</code>, port <code>8080</code>,
+          and your qBittorrent login. Use category <code>movies</code> for
+          Radarr and <code>tv</code> for Sonarr. Test and save. Keep completed
+          download handling enabled.
+        </p>
+        <p>
+          The apps share the same paths, so no remote path mapping is needed. A
+          working VPN connection is required for qBittorrent to start.
+        </p>
+      </article>
+      <article>
+        <h2>5. Make requests with Seerr</h2>
+        <p>
+          Open
+          <a
+            href="http://localhost:5055"
+            data-port="5055"
+            target="_blank"
+            rel="noopener"
+            >Seerr</a
+          >, choose Jellyfin and connect to <code>http://jellyfin:8096</code>.
+          Sign in with your Jellyfin administrator account and sync your
+          libraries.
+        </p>
+        <p>
+          Add Radarr at <code>http://radarr:7878</code> and Sonarr at
+          <code>http://sonarr:8989</code> using their API keys. Select the root
+          folders from step 2, quality profiles, and a default server for each.
+          Set the external Jellyfin URL to the address you use in your browser.
+        </p>
+        <p>
+          Try one request for media you’re allowed to download. With downloads
+          configured, check it reaches the right app, finishes in qBittorrent,
+          imports into your library, and appears in Jellyfin.
+        </p>
+      </article>
+      <h2>Which address goes where?</h2>
+      <p>
+        In your browser, use your server’s address and the app’s port. When
+        connecting one app to another, use the service names shown above.
+        <code>localhost</code> inside a container means that container.
+      </p>
+      <p>
+        Keep this stack on a trusted home network. Complete the account setup
+        before sharing access. The portal lists links; it does not check whether
+        an app is running. Downloads, if enabled, use the VPN; the other apps
+        use your normal connection.
+      </p>
+      <footer><a href="index.html">Back to Media Stack</a></footer>
+    </main>
+  </body>
+</html>

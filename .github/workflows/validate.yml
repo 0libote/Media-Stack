@@ -9,9 +9,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install panel dependencies
+        run: python3 -m pip install --require-hashes -r requirements.txt
       - name: Check setup
         run: python3 -m unittest discover -s tests -v
       - name: Check Compose configurations
         run: python3 tests/check_compose.py
       - name: Check portal JavaScript
-        run: node --check portal/links.js
+        run: |
+          node --check portal/app.js
+          node --check portal/links.js
+          node --test tests/frontend.test.mjs
+      - name: Build the panel container
+        run: docker build -t media-stack-panel:test .
+      - name: Check the container runtime
+        run: python3 tests/check_container.py
