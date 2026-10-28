@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from control.operations import Operations
 from control.state import Store
@@ -127,6 +128,45 @@ class OperationTests(unittest.TestCase):
             "/data/my-existing-downloads",
         )
         self.assertFalse(self.upstream.writes)
+
+    def test_blocked_category_prevents_its_client_but_keeps_unrelated_setup(self):
+        self.upstream.categories["movies"] = {"savePath": "/outside/shared/movies"}
+        plan = self.operations.preview({"downloads": True, "indexers": True})
+        result = self.operations.apply(plan["token"])
+        self.assertFalse(result["complete"])
+        self.assertEqual(self.upstream.clients["radarr"], [])
+        self.assertEqual(len(self.upstream.clients["sonarr"]), 1)
+        self.assertEqual(len(self.upstream.applications), 2)
+        self.assertEqual(self.upstream.categories["movies"]["savePath"], "/outside/shared/movies")
+        blocked = next(step for step in result["steps"] if step["id"] == "download:radarr")
+        self.assertEqual(blocked["status"], "blocked")
+        self.assertIn("category", blocked["detail"])
+
+    def test_category_changed_after_review_prevents_client_creation(self):
+        for existed in (False, True):
+            with self.subTest(existed=existed):
+                self.upstream.categories.clear()
+                if existed:
+                    self.upstream.categories["movies"] = {"savePath": "/data/torrents/movies"}
+                plan = self.operations.preview({"downloads": True})
+                self.upstream.categories["movies"] = {"savePath": "/outside/shared/movies"}
+                result = self.operations.apply(plan["token"])
+                self.assertFalse(result["complete"])
+                self.assertEqual(self.upstream.clients["radarr"], [])
+
+    def test_new_client_rechecks_category_immediately_before_writing(self):
+        plan = self.operations.preview({"downloads": True})
+        action = self.operations.action
+
+        def changed_category(key, options, execute=False):
+            if key == "download:radarr" and execute:
+                self.upstream.categories["movies"] = {"savePath": "/outside/shared/movies"}
+            return action(key, options, execute)
+
+        with patch.object(self.operations, "action", side_effect=changed_category):
+            result = self.operations.apply(plan["token"])
+        self.assertFalse(result["complete"])
+        self.assertEqual(self.upstream.clients["radarr"], [])
 
     def test_existing_library_name_does_not_get_duplicate(self):
         self.upstream.libraries = [
