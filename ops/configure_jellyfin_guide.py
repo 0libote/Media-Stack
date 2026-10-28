@@ -34,18 +34,23 @@ def main():
     entries.append({"Name": "Media Stack TV Guide", "Script": (root / "integrations/jellyfin/guide.js").read_text(),
                     "Enabled": True, "RequiresAuthentication": True, "Module": False, "Src": ""})
     config["CustomJavaScripts"] = entries
-    api("/Plugins/" + INJECTOR_ID + "/Configuration", config)
 
     branding = api("/Branding/Configuration")
     css = branding.get("CustomCss") or ""
     css = re.sub(r"/\* media-stack-tv:start \*/.*?/\* media-stack-tv:end \*/", "", css, flags=re.S).rstrip()
     branding["CustomCss"] = css + "\n/* media-stack-tv:start */\n" + (root / "integrations/jellyfin/guide.css").read_text() + "\n/* media-stack-tv:end */\n"
-    api("/System/Configuration/Branding", branding)
 
     live = api("/System/Configuration/livetv")
-    provider = next(p for p in live["ListingProviders"] if p.get("Type") == "xmltv" and ("dispatcharr" in p.get("Path", "") or p.get("Path") == args.guide_path))
-    uk = next(t for t in live["TunerHosts"] if t.get("Url", "").endswith("/m3u/UK"))
+    provider = next((p for p in live.get("ListingProviders", []) if p.get("Type") == "xmltv" and ("dispatcharr" in p.get("Path", "") or p.get("Path") == args.guide_path)), None)
+    uk = next((t for t in live.get("TunerHosts", []) if t.get("Url", "").endswith("/m3u/UK")), None)
+    if provider is None:
+        parser.error("Add the Dispatcharr XMLTV listing provider in Jellyfin Live TV before configuring the guide.")
+    if uk is None or not uk.get("Id"):
+        parser.error("Add the Dispatcharr /m3u/UK tuner in Jellyfin Live TV before configuring the guide.")
     provider.update(Path=args.guide_path, EnableAllTuners=False, EnabledTuners=[uk["Id"]])
+    # Resolve prerequisites and read assets before changing the server.
+    api("/Plugins/" + INJECTOR_ID + "/Configuration", config)
+    api("/System/Configuration/Branding", branding)
     api("/LiveTv/ListingProviders", provider)
     print("Configured guide-first web navigation, compact styling and real UK listings; existing tuner IDs retained.")
 
