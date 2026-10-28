@@ -38,15 +38,14 @@ else:
     raise SystemExit("The panel did not start within ten seconds")
 session = call("/api/session")
 assert session["needs_setup"] and not session["authenticated"]
-code_file = Path("/state/setup-code")
-assert code_file.stat().st_mode & 0o777 == 0o600
-result = call("/api/auth/setup", {"code": code_file.read_text().strip(),
-    "password": "isolated-container-test-password"}, session["csrf"])
+assert not Path("/state/setup-code").exists()
+result = call("/api/auth/setup", {"username": "test-owner",
+    "password": "x"}, session["csrf"])
 csrf = result["csrf"]
-assert not code_file.exists()
+assert not Path("/state/setup-code").exists()
 assert Path("/state/settings.json").stat().st_mode & 0o777 == 0o600
 overview = call("/api/overview")
-assert len(overview["services"]) == 6
+assert len(overview["services"]) == 8
 assert all(item["status"] == "unlinked" for item in overview["services"])
 assert overview["storage"]["disk"]["total"] > 0
 plan = call("/api/setup/preview", {"folders": True}, csrf)
@@ -62,7 +61,7 @@ for path in ("/app.js", "/format.mjs", "/style.css", "/fonts/plex-regular.woff2"
     with opener.open(base + path, timeout=5) as response:
         assert response.status == 200
         assert response.headers["X-Content-Type-Options"] == "nosniff"
-print("Container smoke checks passed: non-root read-only runtime, claim/login, private state, disk stats, reviewed folder creation, hardlinks, and bundled assets.")
+print("Container smoke checks passed: non-root read-only runtime, account setup, private state, disk stats, reviewed folder creation, hardlinks, and bundled assets.")
 """
 
 

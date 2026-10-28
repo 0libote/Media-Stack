@@ -63,7 +63,7 @@ def wireguard_config(path):
     return text
 
 
-def prepare(root, data_dir, bind_address, timezone, vpn_config=None):
+def prepare(root, data_dir, bind_address, timezone, vpn_config=None, downloads=False):
     if (root / ".env").exists():
         raise ValueError(
             ".env already exists; edit it directly. Existing settings were kept."
@@ -90,6 +90,7 @@ def prepare(root, data_dir, bind_address, timezone, vpn_config=None):
         "secrets",
         "portal",
         "control",
+        "ops",
         "docs",
         "tests",
         ".git",
@@ -130,10 +131,13 @@ def prepare(root, data_dir, bind_address, timezone, vpn_config=None):
             "torrents/movies",
             "torrents/tv",
             "torrents/incomplete",
+            "recordings",
         )
     ]
+    if downloads or vpn_text:
+        directories += [root / "config/qbittorrent"]
     if vpn_text:
-        directories += [root / "config/gluetun", root / "config/qbittorrent"]
+        directories += [root / "config/gluetun"]
     for directory in directories:
         directory.mkdir(parents=True, exist_ok=True)
         if not os.access(directory, os.W_OK | os.X_OK):
@@ -144,11 +148,17 @@ def prepare(root, data_dir, bind_address, timezone, vpn_config=None):
             secret, "x", opener=lambda path, flags: os.open(path, flags, 0o600)
         ) as handle:
             handle.write(vpn_text)
-    compose = "compose.yaml:compose.downloads.yaml" if vpn_text else "compose.yaml"
+    compose = "compose.yaml"
+    if downloads or vpn_text:
+        compose += ":compose.downloads.direct.yaml"
+    if vpn_text:
+        compose += ":compose.vpn.yaml"
     settings = (
         f"COMPOSE_FILE={compose}\nPUID={os.getuid()}\nPGID={os.getgid()}\n"
         f"TZ={timezone}\nDATA_DIR='{data}'\nBIND_ADDRESS={bind_address}\n"
-        f"DOWNLOADS_ENABLED={'true' if vpn_text else 'false'}\n"
+        f"DOWNLOADS_ENABLED={'true' if downloads or vpn_text else 'false'}\n"
+        f"VPN_ENABLED={'true' if vpn_text else 'false'}\n"
+        "VPN_STOP_ACTION=pause\n"
     )
     with open(
         root / ".env", "x", opener=lambda path, flags: os.open(path, flags, 0o600)
@@ -167,6 +177,9 @@ def main():
     parser.add_argument("--timezone", help="IANA timezone (default: Etc/UTC)")
     parser.add_argument(
         "--vpn-config", help="Provider WireGuard file; enables VPN downloads"
+    )
+    parser.add_argument(
+        "--downloads", action="store_true", help="Enable downloads without a VPN"
     )
     parser.add_argument(
         "--non-interactive",
@@ -195,10 +208,13 @@ def main():
             "127.0.0.1",
         )
         timezone = answer(args.timezone, "Timezone", "Etc/UTC")
-        vpn = answer(
-            args.vpn_config, "WireGuard file (leave empty to skip downloads)", ""
-        )
-        prepare(ROOT, data_dir, bind, timezone, vpn or None)
+        vpn = answer(args.vpn_config, "WireGuard file (leave empty for no VPN)", "")
+        downloads = args.downloads or bool(vpn)
+        if interactive and not downloads:
+            downloads = (
+                answer(None, "Enable downloads without a VPN? y/n", "n").lower() == "y"
+            )
+        prepare(ROOT, data_dir, bind, timezone, vpn or None, downloads=downloads)
     except (ValueError, OSError, configparser.Error) as error:
         parser.exit(1, f"Setup stopped: {error}\n")
     if not shutil.which("docker"):
@@ -210,7 +226,7 @@ def main():
         f"\nReady. Run from {ROOT}:\n  docker compose config --quiet\n  docker compose up -d\n\nOpen http://{host}:8088 and follow First-time setup."
     )
     print(
-        "After the panel starts, read its one-time setup code:\n  cat config/portal/setup-code"
+        "On first use, choose your administrator username and password in the browser."
     )
     if bind == "0.0.0.0":
         print(

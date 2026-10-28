@@ -1,0 +1,11 @@
+[Unit]
+Description=Maintain the UK iptv-org guide layout
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=1h
+AccuracySec=1min
+Unit=iptv-org-layout.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Recover Media Stack containers and VPN dependencies
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/DATA/Projects/Media-Stack
+EnvironmentFile=-/etc/media-stack.conf
+ExecStart=/usr/bin/python3 /DATA/Projects/Media-Stack/ops/reconcile.py
+TimeoutStartSec=360

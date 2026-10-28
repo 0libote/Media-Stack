@@ -1,41 +1,6 @@
-# Optional: setup.py enables this file when given a WireGuard configuration.
-services:
-  gluetun:
-    image: qmcgaw/gluetun:v3.41.3
-    restart: unless-stopped
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    environment:
-      TZ: ${TZ:-Etc/UTC}
-      VPN_SERVICE_PROVIDER: custom
-      VPN_TYPE: wireguard
-      FIREWALL_INPUT_PORTS: "8080"
-    volumes:
-      - ./config/gluetun:/gluetun
-      - ./secrets/wg0.conf:/gluetun/wireguard/wg0.conf:ro
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:8080:8080"
-
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    restart: unless-stopped
-    network_mode: service:gluetun
-    depends_on:
-      gluetun:
-        condition: service_healthy
-        restart: true
-    environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      TZ: ${TZ:-Etc/UTC}
-      WEBUI_PORT: "8080"
-      TORRENTING_PORT: "6881"
-    volumes:
-      - ./config/qbittorrent:/config
-      - type: bind
-        source: ${DATA_DIR:-./data}
-        target: /data
-        bind:
-          create_host_path: false
+# Backward compatibility: this filename continues to mean VPN-protected downloads.
+# New installs use compose.downloads.direct.yaml and optionally compose.vpn.yaml.
+include:
+  - path:
+      - compose.downloads.direct.yaml
+      - compose.vpn.yaml

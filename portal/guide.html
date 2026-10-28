@@ -139,12 +139,12 @@
           </li>
           <li>
             In Advanced settings, select <code>tun0</code> as the network
-            interface. Gluetun uses this for the VPN tunnel.
+            interface when VPN routing is enabled. Clear that binding for normal-connection downloads; the host VPN-mode command handles this automatically.
           </li>
         </ul>
         <p>
           In Radarr and Sonarr, go to Settings → Download Clients and add
-          qBittorrent with host <code>gluetun</code>, port <code>8080</code>,
+          qBittorrent with host <code>qbittorrent</code>, port <code>8080</code>,
           and your qBittorrent login. Use category <code>movies</code> for
           Radarr and <code>tv</code> for Sonarr. Test and save. Keep completed
           download handling enabled.

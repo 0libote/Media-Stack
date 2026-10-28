@@ -40,7 +40,6 @@ class PanelTests(unittest.TestCase):
         self.client = self.app.test_client()
         self.store = self.app.extensions["store"]
         self.csrf = self.client.get("/api/session").json["csrf"]
-        self.code = (root / "state/setup-code").read_text().strip()
 
     def post(self, path, data=None, client=None, csrf=None):
         return (client or self.client).post(
@@ -51,7 +50,7 @@ class PanelTests(unittest.TestCase):
 
     def sign_in(self):
         response = self.post(
-            "/api/auth/setup", {"code": self.code, "password": "panel-test-password"}
+            "/api/auth/setup", {"username": "owner", "password": "panel-test-password"}
         )
         self.assertEqual(response.status_code, 200, response.json)
         self.csrf = response.json["csrf"]
@@ -71,26 +70,126 @@ class PanelTests(unittest.TestCase):
             }
             self.store.save()
 
-    def test_private_state_and_one_time_claim(self):
+    def test_private_state_and_first_time_account_setup(self):
         self.assertEqual(stat.S_IMODE(self.store.path.stat().st_mode), 0o600)
-        self.assertEqual(
-            stat.S_IMODE((self.store.directory / "setup-code").stat().st_mode), 0o600
-        )
+        self.assertFalse((self.store.directory / "setup-code").exists())
         bad = self.post(
-            "/api/auth/setup", {"code": "wrong", "password": "panel-test-password"}
+            "/api/auth/setup", {"username": "", "password": "panel-test-password"}
         )
-        self.assertEqual(bad.status_code, 403)
+        self.assertEqual(bad.status_code, 400)
         self.sign_in()
         self.assertFalse((self.store.directory / "setup-code").exists())
-        self.assertIsNone(self.store.data["claim_hash"])
+        self.assertNotIn("claim_hash", self.store.data)
+        self.assertEqual(self.store.data["username"], "owner")
         self.assertNotIn("panel-test-password", self.store.path.read_text())
         self.assertEqual(
             self.post(
                 "/api/auth/setup",
-                {"code": self.code, "password": "another-test-password"},
+                {"username": "replacement", "password": "another-test-password"},
             ).status_code,
             409,
         )
+
+    def test_setup_rejects_invalid_usernames_and_empty_passwords(self):
+        for data in (
+            {"password": "panel-test-password"},
+            {"username": "a" * 65, "password": "panel-test-password"},
+            {"username": "bad\nname", "password": "panel-test-password"},
+            {"username": "owner", "password": ""},
+            {"username": "owner", "password": None},
+            {"username": "owner", "password": "a" * 129},
+        ):
+            self.assertEqual(self.post("/api/auth/setup", data).status_code, 400)
+        self.assertIsNone(self.store.data["password_hash"])
+
+    def test_short_passwords_work_for_setup_login_and_password_changes(self):
+        response = self.post("/api/auth/setup", {"username": "owner", "password": "x"})
+        self.assertEqual(response.status_code, 200)
+        self.csrf = response.json["csrf"]
+        self.post("/api/auth/logout")
+        self.csrf = self.client.get("/api/session").json["csrf"]
+        response = self.post("/api/auth/login", {"username": "owner", "password": "x"})
+        self.assertEqual(response.status_code, 200)
+        self.csrf = response.json["csrf"]
+        self.assertEqual(
+            self.post(
+                "/api/auth/password", {"current": "x", "password": ""}
+            ).status_code,
+            400,
+        )
+        response = self.post("/api/auth/password", {"current": "x", "password": "y"})
+        self.assertEqual(response.status_code, 200)
+        self.csrf = response.json["csrf"]
+        self.post("/api/auth/logout")
+        self.csrf = self.client.get("/api/session").json["csrf"]
+        self.assertEqual(
+            self.post(
+                "/api/auth/login", {"username": "owner", "password": "y"}
+            ).status_code,
+            200,
+        )
+
+    def test_setup_still_requires_csrf_and_same_origin(self):
+        data = {"username": "owner", "password": "panel-test-password"}
+        self.assertEqual(
+            self.client.post("/api/auth/setup", json=data).status_code, 403
+        )
+        response = self.client.post(
+            "/api/auth/setup",
+            json=data,
+            headers={
+                "X-CSRF-Token": self.csrf,
+                "Origin": "https://attacker.invalid",
+            },
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertIsNone(self.store.data["password_hash"])
+
+    def test_login_checks_both_username_and_password(self):
+        self.sign_in()
+        self.post("/api/auth/logout")
+        self.csrf = self.client.get("/api/session").json["csrf"]
+        for name, password in (
+            ("someone-else", "panel-test-password"),
+            ("owner", "incorrect-password"),
+        ):
+            response = self.post(
+                "/api/auth/login", {"username": name, "password": password}
+            )
+            self.assertEqual(response.status_code, 403)
+            self.assertFalse(self.client.get("/api/session").json["authenticated"])
+        response = self.post(
+            "/api/auth/login", {"username": "owner", "password": "panel-test-password"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.client.get("/api/session").json["authenticated"])
+
+    def test_legacy_account_keeps_password_and_connections_with_admin_username(self):
+        self.sign_in()
+        self.connect_all()
+        legacy = dict(self.store.data)
+        legacy.pop("username")
+        legacy["claim_hash"] = None
+        self.store.path.write_text(json.dumps(legacy))
+        (self.store.directory / "setup-code").write_text("obsolete-code")
+        restarted = create_app(
+            {"TESTING": True, "STATE_DIR": self.store.directory, "DATA_DIR": self.data}
+        )
+        restored = restarted.extensions["store"]
+        self.assertEqual(restored.data["username"], "admin")
+        for key in ("password_hash", "secret", "auth_version", "services", "locations"):
+            self.assertEqual(restored.data[key], legacy[key])
+        self.assertNotIn("claim_hash", restored.data)
+        self.assertFalse((self.store.directory / "setup-code").exists())
+        client = restarted.test_client()
+        token = client.get("/api/session").json["csrf"]
+        response = self.post(
+            "/api/auth/login",
+            {"username": "admin", "password": "panel-test-password"},
+            client=client,
+            csrf=token,
+        )
+        self.assertEqual(response.status_code, 200)
 
     def test_authentication_required_for_all_management_endpoints(self):
         for path in (
@@ -128,7 +227,7 @@ class PanelTests(unittest.TestCase):
         token = other.get("/api/session").json["csrf"]
         response = self.post(
             "/api/auth/login",
-            {"password": "panel-test-password"},
+            {"username": "owner", "password": "panel-test-password"},
             client=other,
             csrf=token,
         )
@@ -147,7 +246,10 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.csrf = self.client.get("/api/session").json["csrf"]
         for _ in range(9):
-            response = self.post("/api/auth/login", {"password": "wrong-test-password"})
+            response = self.post(
+                "/api/auth/login",
+                {"username": "owner", "password": "wrong-test-password"},
+            )
         self.assertEqual(response.status_code, 429)
 
     def test_test_connection_does_not_save_or_return_key(self):
@@ -200,8 +302,33 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(data["jellyfin"]["metrics"]["streams"], 1)
         self.assertEqual(data["qbittorrent"]["metrics"]["download_speed"], 4096)
         self.assertEqual(data["seerr"]["metrics"]["pending"], 2)
-        for secret in (KEY, PASSWORD, self.code):
+        for secret in (KEY, PASSWORD):
             self.assertNotIn(secret, response.get_data(as_text=True))
+
+    def test_qbittorrent_no_content_login_keeps_authenticated_session(self):
+        with patch.object(self.upstream, "qbit_login_status", 204):
+            client = Client("qbittorrent", self.upstream.config("qbittorrent"))
+            self.assertTrue(client.test())
+            client.config["password"] = "wrong-password"
+            with self.assertRaises(ServiceError):
+                client.test()
+
+    def test_optional_service_health_connections_need_no_credentials(self):
+        self.sign_in()
+        for service in ("gluetun", "dispatcharr"):
+            result = self.post(
+                "/api/connections/" + service,
+                {
+                    "url": self.upstream.base + "/" + service,
+                },
+            )
+            self.assertEqual(result.status_code, 200, result.json)
+            self.assertNotIn("api_key", self.store.data["services"][service])
+
+    def test_invalid_dispatcharr_response_is_a_service_error(self):
+        with patch.object(self.upstream, "invalid_metrics", True):
+            with self.assertRaises(ServiceError):
+                Client("dispatcharr", self.upstream.config("dispatcharr")).test()
 
     def test_unlinked_metrics_are_absent_instead_of_zero(self):
         self.sign_in()
@@ -375,9 +502,18 @@ class PanelTests(unittest.TestCase):
         )
         self.assertIsNone(restored.data["password_hash"])
         self.assertNotEqual(restored.data["secret"], self.store.data["secret"])
-        self.assertEqual(
-            stat.S_IMODE((restored.directory / "setup-code").stat().st_mode), 0o600
+        self.assertIsNone(restored.data["username"])
+        self.assertFalse((restored.directory / "setup-code").exists())
+        client = restarted.test_client()
+        token = client.get("/api/session").json["csrf"]
+        response = self.post(
+            "/api/auth/setup",
+            {"username": "new-owner", "password": "replacement-password"},
+            client=client,
+            csrf=token,
         )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(restored.data["username"], "new-owner")
 
     def test_trusted_proxy_supports_https_origin_and_secure_cookies(self):
         with patch.dict(os.environ, {"PANEL_TRUST_PROXY": "1"}):
@@ -396,7 +532,7 @@ class PanelTests(unittest.TestCase):
         token = response.json["csrf"]
         response = client.post(
             "/api/auth/setup",
-            json={"code": self.code, "password": "panel-test-password"},
+            json={"username": "owner", "password": "panel-test-password"},
             headers={
                 "X-CSRF-Token": token,
                 "Origin": "https://localhost",

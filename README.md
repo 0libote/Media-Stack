@@ -2,7 +2,7 @@
 
 A control panel for your own Jellyfin and ARR stack. Connect the apps, choose where files belong, and see what’s running from one place.
 
-Media Stack runs on a Linux server or NAS with Docker Compose. It includes Jellyfin, Seerr, Radarr, Sonarr, and Prowlarr. Optional qBittorrent downloads run through Gluetun.
+Media Stack runs on a Linux server or NAS with Docker Compose. It includes Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, and Dispatcharr for live TV. Optional qBittorrent downloads can use your normal connection or Gluetun.
 
 ## What the panel does
 
@@ -19,7 +19,7 @@ _Storage screen from an isolated test install._
 
 ## Install
 
-You need Linux, Python 3.9+ for the setup script, Git, and [Docker Engine with Compose v2.20+](https://docs.docker.com/engine/install/). The control panel’s Python runtime is included in its container. Run setup as the normal user who will own the media files, with permission to use Docker.
+You need Linux, Python 3.9+ for the setup script, Git, and [Docker Engine with Compose v2.24.4+](https://docs.docker.com/engine/install/). The control panel’s Python runtime is included in its container. Run setup as the normal user who will own the media files, with permission to use Docker.
 
 ```bash
 git clone https://github.com/0libote/Media-Stack.git
@@ -31,13 +31,7 @@ docker compose up -d --build
 
 Setup asks for a storage folder, your server’s LAN IPv4 address, timezone, and an optional provider WireGuard file. Use a dedicated storage folder that your user can write to. The default address, `127.0.0.1`, allows access from the server itself; enter its LAN address to use other devices at home.
 
-Open **http://YOUR-SERVER-IP:8088**. Once the panel has started, read its one-time setup code from the server:
-
-```bash
-cat config/portal/setup-code
-```
-
-Enter that code in the panel and choose an administrator password. The code is removed after use. This account controls the panel; the other apps keep their own accounts.
+Open **http://YOUR-SERVER-IP:8088** and choose your administrator username and password on the first-start screen. This account controls the panel; the other apps keep their own accounts.
 
 For a server using a separate disk:
 
@@ -78,13 +72,21 @@ Keep this data folder dedicated to media and downloads. The library tools and pa
 
 ## Optional downloads
 
-Provide a provider WireGuard configuration during setup, or follow [the downloads guide](docs/downloads.md) to add it later. qBittorrent shares Gluetun’s network and waits for the VPN health check. The panel does not expose Docker’s socket or change VPN credentials.
+Enable normal downloads with `python3 setup.py --downloads`, or supply `--vpn-config /path/to/provider.conf` for VPN routing. Existing installs can switch with `python3 ops/vpn.py off` or `python3 ops/vpn.py on`. The selected mode persists; VPN-off downloads use the normal connection. See [downloads and VPN modes](docs/downloads.md).
 
-Only qBittorrent uses the VPN. Search, requests, and playback use the normal connection. A qBittorrent “Connected” badge means its API responded; it does not prove the VPN exit route. Verify that separately before relying on it.
+With the recovery timer, set `VPN_STOP_ACTION=direct` to continue normal downloads automatically when you stop Gluetun. The default is to pause VPN downloads. The rest of the stack stays available in either case. Only qBittorrent uses the VPN; TV, search, requests and playback remain independent. A working download API does not establish which public route is in use.
+
+## Live TV
+
+Open Dispatcharr on port **9191**, add your channel source and XMLTV guide, and connect its M3U/guide outputs to Jellyfin. Manage channel order, guide matching and recordings in Dispatcharr. The panel provides its status and an app link. [Live TV setup](docs/live-tv.md) explains source requirements and storage. A full UK lineup requires working streams or a tuner; Dispatcharr does not include channels or repair aerial reception.
 
 ## Keep it running
 
 Run commands from this repository so Compose loads `.env`.
+
+For an existing host, see [adopting a stack and automatic recovery](docs/maintenance.md#adopt-an-existing-stack). The optional disk-checked recovery timer restores services after boot and repairs VPN network dependencies; pause it before maintenance.
+
+On ZimaOS, [register the complete application](docs/maintenance.md#zimaos-dashboard-controls) to keep its dashboard tile, Compose/settings and container controls together.
 
 ```bash
 docker compose ps
@@ -113,6 +115,7 @@ Use a trusted home network and finish the apps’ account setup before sharing t
 | Radarr                    | 7878 |
 | Sonarr                    | 8989 |
 | Prowlarr                  | 9696 |
+| Dispatcharr               | 9191 |
 | qBittorrent, when enabled | 8080 |
 
 ## Development

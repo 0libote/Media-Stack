@@ -22,6 +22,7 @@ class FakeServices:
         self.failures = {}
         self.delay = 0
         self.invalid_metrics = False
+        self.qbit_login_status = 200
         fixtures = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -36,7 +37,7 @@ class FakeServices:
 
             def handle_request(self):
                 parsed = urlsplit(self.path)
-                parts = parsed.path.strip("/").split("/", 1)
+                parts = parsed.path.lstrip("/").split("/", 1)
                 if len(parts) != 2:
                     self.send_response(404)
                     self.end_headers()
@@ -68,22 +69,23 @@ class FakeServices:
                         payload.get("username") == "admin"
                         and payload.get("password") == PASSWORD
                     )
-                    self.send_response(200)
+                    status = fixtures.qbit_login_status if valid else 200
+                    self.send_response(status)
                     if valid:
                         self.send_header("Set-Cookie", "SID=test-session; Path=/")
                     self.end_headers()
-                    self.wfile.write(b"Ok." if valid else b"Fails.")
+                    if status != 204:
+                        self.wfile.write(b"Ok." if valid else b"Fails.")
                     return
                 if service == "qbittorrent":
                     if "SID=test-session" not in self.headers.get("Cookie", ""):
                         self.send_response(403)
                         self.end_headers()
                         return
-                elif (
-                    self.headers.get(
-                        "X-Emby-Token" if service == "jellyfin" else "X-Api-Key"
-                    )
-                    != KEY
+                elif service not in ("gluetun", "dispatcharr") and self.headers.get(
+                    "Authorization" if service == "jellyfin" else "X-Api-Key"
+                ) != (
+                    'MediaBrowser Token="' + KEY + '"' if service == "jellyfin" else KEY
                 ):
                     self.send_response(401)
                     self.end_headers()
@@ -132,6 +134,10 @@ class FakeServices:
         )
 
     def response(self, service, path, method, payload, query):
+        if service == "gluetun" and path == "/":
+            return "", True
+        if service == "dispatcharr" and path == "/api/core/version/":
+            return ([] if self.invalid_metrics else {"version": "0.33.0"}), False
         if service in ("radarr", "sonarr", "prowlarr"):
             prefix = "/api/v1" if service == "prowlarr" else "/api/v3"
             if not path.startswith(prefix):

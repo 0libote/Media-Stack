@@ -1,0 +1,87 @@
+/* TV guide only: preserve Jellyfin's grid geometry and the rest of the library. */
+.guide-channelHeaderCell,
+.channelPrograms {
+    height: 3.5rem !important;
+    box-sizing: border-box;
+}
+.guide-channelHeaderCell {
+    display: grid;
+    grid-template-columns: 2.7rem minmax(0, 1fr);
+    grid-template-rows: 1fr 1fr;
+    gap: 0 .3rem;
+    padding: .3rem .45rem !important;
+    background: #19232e;
+    border-color: #35424e;
+    border-radius: 0;
+}
+.guide-channelHeaderCell .guideChannelNumber {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    position: static;
+    margin: 0;
+    font-size: .9rem;
+    color: #d2d9e0;
+}
+.guide-channelHeaderCell .guideChannelImage {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    height: 1.4rem;
+    margin: 0;
+    background-size: contain;
+    background-position: left center;
+    background-repeat: no-repeat;
+}
+.stack-tv-channel-name {
+    grid-column: 2;
+    grid-row: 2;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: .76rem;
+    line-height: 1.2;
+    color: #f4f6f7;
+}
+.guide-channelHeaderCell.stack-tv-extra {
+    background: #23242a;
+}
+.programCell {
+    border-radius: 0;
+    border-color: #35424e;
+    background-color: #202a35;
+    color: #f4f6f7;
+}
+.programCell:focus-visible,
+.guide-channelHeaderCell:focus-visible {
+    outline: 3px solid #ffc400 !important;
+    outline-offset: -3px;
+}
+.guideProgramSecondaryInfo {
+    color: #b4bcc5;
+}
+.guideOptions {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.stack-tv-guide-key {
+    font-size: .76rem;
+    color: #b4bcc5;
+    padding-inline-end: .5rem;
+}
+@media (max-width: 600px) {
+    .guide-channelHeaderCell,
+    .channelPrograms {
+        height: 3.75rem !important;
+    }
+    .guide-channelHeaderCell {
+        grid-template-columns: 1.9rem minmax(0, 1fr);
+        padding-inline: .2rem !important;
+    }
+    .stack-tv-guide-key {
+        font-size: .65rem;
+    }
+    .guide-channelHeaderCell .guideChannelNumber {
+        font-size: .68rem;
+    }
+}

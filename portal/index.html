@@ -91,19 +91,16 @@
           Connecting to the control panel.
         </p>
         <form id="auth-form" hidden>
-          <div id="setup-code-field" hidden>
-            <label for="setup-code">Setup code</label
-            ><input
-              id="setup-code"
-              name="code"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <p class="field-help">
-              On your server, run <code>cat config/portal/setup-code</code> from
-              the repo folder. The code is used once.
-            </p>
-          </div>
+          <label for="auth-username">Username</label
+          ><input
+            id="auth-username"
+            name="username"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            maxlength="64"
+            required
+          />
           <label for="auth-password">Administrator password</label
           ><input
             id="auth-password"
@@ -113,10 +110,6 @@
             autocomplete="current-password"
             maxlength="128"
           />
-          <p id="password-help" class="field-help" hidden>
-            Use at least 12 characters. This password is only for the control
-            panel.
-          </p>
           <div id="confirm-password-field" hidden>
             <label for="auth-confirm">Confirm password</label
             ><input
@@ -774,13 +767,11 @@
                   id="new-password"
                   type="password"
                   autocomplete="new-password"
-                  minlength="12"
                   maxlength="128"
                   required
                 />
                 <p class="field-help">
-                  At least 12 characters. Changing it signs out other panel
-                  sessions.
+                  Changing your password signs out other panel sessions.
                 </p>
                 <label for="new-password-confirm">Confirm new password</label
                 ><input

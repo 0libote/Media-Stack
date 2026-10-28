@@ -1,0 +1,7 @@
+# Optional Linux Intel/AMD render device; set its host group ID before enabling.
+services:
+  jellyfin:
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    group_add:
+      - "${JELLYFIN_RENDER_GID:?Set JELLYFIN_RENDER_GID from stat -c %g /dev/dri/renderD128}"

@@ -1,10 +1,12 @@
 # Using the control panel
 
+On first use, choose an administrator username and password in the browser. Sign in with those details on subsequent visits. The panel has one administrator account; each connected app keeps its own accounts. Existing password-only panels upgrade to username `admin` with the same password.
+
 ## Connections and addresses
 
 There are two addresses for each app:
 
-- **Internal address:** used by the panel and the other containers. This repo uses `http://jellyfin:8096`, `http://seerr:5055`, `http://radarr:7878`, `http://sonarr:8989`, `http://prowlarr:9696`, and `http://gluetun:8080` for qBittorrent.
+- **Internal address:** used by the panel and the other containers. This repo uses `http://jellyfin:8096`, `http://seerr:5055`, `http://radarr:7878`, `http://sonarr:8989`, `http://prowlarr:9696`, and `http://qbittorrent:8080` for qBittorrent in either routing mode, `http://dispatcharr:9191` for TV, and `http://gluetun:9999` for VPN health.
 - **Browser address:** the address your phone or computer can open. By default, the panel uses its own hostname and the app’s standard port. Set an override if you use another port or a reverse proxy.
 
 A container’s `localhost` points to that container. Don’t use the browser’s `localhost` address to link separate containers.
@@ -68,3 +70,5 @@ Panel activity records up to 50 connection/setup events. It is not the download/
 The adapters use Jellyfin’s system/library/session endpoints; Radarr v3; Sonarr v3 (Sonarr 4); Prowlarr v1; Seerr `/api/v1`; and qBittorrent `/api/v2`. Integration payloads are built from Radarr/Sonarr/Prowlarr’s own schemas to retain upstream defaults. Incompatible fields block the operation instead of guessing.
 
 References: [Jellyfin API](https://api.jellyfin.org/), [Radarr API](https://radarr.video/docs/api/), [Sonarr API](https://sonarr.tv/docs/api/), [Prowlarr API](https://prowlarr.com/docs/api/), [Seerr API](https://docs.seerr.dev/api/), [qBittorrent WebUI API](https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-%28qBittorrent-5.0%29).
+
+Gluetun and Dispatcharr use read-only health/version checks in the panel and need no app credentials there. Gluetun has no browser UI. Manage TV sources and recordings in Dispatcharr; changing VPN routing uses the host command in [downloads](downloads.md). The panel still has no Docker socket.

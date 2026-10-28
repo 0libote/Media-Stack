@@ -31,6 +31,11 @@ def render(extra=()):
 
 
 core = render()
+with patch.dict(os.environ, {"JELLYFIN_RENDER_GID": "109"}):
+    gpu = render(["-f", str(ROOT / "compose.gpu.yaml")])
+assert gpu["services"]["jellyfin"]["devices"][0]["target"] == "/dev/dri/renderD128"
+assert gpu["services"]["jellyfin"]["group_add"] == ["109"]
+assert not core["services"]["jellyfin"].get("devices")
 assert set(core["services"]) == {
     "portal",
     "jellyfin",
@@ -38,8 +43,23 @@ assert set(core["services"]) == {
     "radarr",
     "sonarr",
     "prowlarr",
+    "dispatcharr",
 }
-full = render(["-f", str(ROOT / "compose.downloads.yaml")])
+direct = render(["-f", str(ROOT / "compose.downloads.direct.yaml")])
+assert set(direct["services"]) == set(core["services"]) | {"qbittorrent"}
+assert "network_mode" not in direct["services"]["qbittorrent"]
+assert not direct["services"]["qbittorrent"].get("depends_on")
+assert direct["services"]["qbittorrent"]["ports"][0]["published"] == "8080"
+full = render(
+    [
+        "-f",
+        str(ROOT / "compose.downloads.direct.yaml"),
+        "-f",
+        str(ROOT / "compose.vpn.yaml"),
+    ]
+)
+legacy = render(["-f", str(ROOT / "compose.downloads.yaml")])
+assert legacy["services"]["qbittorrent"]["network_mode"] == "service:gluetun"
 services = full["services"]
 assert set(services) == set(core["services"]) | {"gluetun", "qbittorrent"}
 assert services["qbittorrent"]["network_mode"] == "service:gluetun"
@@ -48,8 +68,18 @@ assert (
     services["qbittorrent"]["depends_on"]["gluetun"]["condition"] == "service_healthy"
 )
 assert services["gluetun"]["environment"]["FIREWALL_INPUT_PORTS"] == "8080"
+assert "qbittorrent" in services["gluetun"]["networks"]["default"]["aliases"]
+for name in core["services"]:
+    assert not services[name].get("depends_on"), name
+assert "network_mode" not in services["dispatcharr"]
 assert services["seerr"]["init"]
+for name in ("radarr", "sonarr", "prowlarr", "seerr", "qbittorrent", "dispatcharr"):
+    assert services[name]["healthcheck"]["test"], name
+for name in ("radarr", "sonarr", "prowlarr"):
+    assert services[name]["environment"]["HEALTH_PORT"].isdigit(), name
 for name, service in services.items():
+    assert service["restart"] == "unless-stopped", name
+    assert service["stop_grace_period"] == "1m0s", name
     for port in service.get("ports", []):
         assert port["host_ip"] == "127.0.0.1", (name, port)
 shared = []

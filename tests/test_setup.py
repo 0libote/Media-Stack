@@ -77,9 +77,22 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(secret.stat().st_mode), 0o600)
         self.assertEqual(stat.S_IMODE(secret.parent.stat().st_mode), 0o700)
         env = (self.root / ".env").read_text()
-        self.assertIn("COMPOSE_FILE=compose.yaml:compose.downloads.yaml", env)
+        self.assertIn(
+            "COMPOSE_FILE=compose.yaml:compose.downloads.direct.yaml:compose.vpn.yaml\n",
+            env,
+        )
+        self.assertIn("VPN_ENABLED=true\n", env)
         self.assertNotIn("AQEBAQEBAQE", env)
         self.assertTrue(source.exists())
+
+    def test_direct_downloads_do_not_require_vpn_secrets(self):
+        self.prepare(downloads=True)
+        env = (self.root / ".env").read_text()
+        self.assertIn("COMPOSE_FILE=compose.yaml:compose.downloads.direct.yaml\n", env)
+        self.assertIn("DOWNLOADS_ENABLED=true\nVPN_ENABLED=false\n", env)
+        self.assertTrue((self.root / "config/qbittorrent").is_dir())
+        self.assertTrue((self.root / "data/recordings").is_dir())
+        self.assertFalse((self.root / "secrets").exists())
 
     def test_invalid_input_fails_before_writing_settings(self):
         for settings in (

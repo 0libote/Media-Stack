@@ -1,0 +1,28 @@
+# Optional downloads on the normal internet connection. Add compose.vpn.yaml for VPN routing.
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    restart: unless-stopped
+    stop_grace_period: 60s
+    healthcheck:
+      # An authenticated Web UI can return 401/403; any HTTP response proves it is listening.
+      test: ["CMD-SHELL", "curl -sS --max-time 5 -o /dev/null http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8080:8080"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Etc/UTC}
+      WEBUI_PORT: "8080"
+      TORRENTING_PORT: "6881"
+    volumes:
+      - ./config/qbittorrent:/config
+      - type: bind
+        source: ${DATA_DIR:-./data}
+        target: /data
+        bind:
+          create_host_path: false

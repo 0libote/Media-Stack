@@ -1,7 +1,6 @@
 """Authenticated Media Stack API and frontend."""
 
 from datetime import timedelta
-import hashlib
 import hmac
 import os
 from pathlib import Path
@@ -70,6 +69,15 @@ def create_app(settings=None):
         if not isinstance(data, dict):
             raise ValueError("Send a JSON object with this request.")
         return data
+
+    def account_username(data):
+        name = data.get("username")
+        if not isinstance(name, str):
+            raise ValueError("Enter a username between 1 and 64 characters.")
+        name = name.strip()
+        if not 1 <= len(name) <= 64 or not name.isprintable():
+            raise ValueError("Enter a username between 1 and 64 printable characters.")
+        return name
 
     def invalidate():
         cache["time"] = 0
@@ -163,37 +171,24 @@ def create_app(settings=None):
         )
 
     @app.post("/api/auth/setup")
-    def claim():
+    def setup_account():
         limited = rate_limit()
         if limited:
             return limited
         data = body()
-        password, code = data.get("password"), data.get("code", "")
-        if not isinstance(password, str) or not 12 <= len(password) <= 128:
-            raise ValueError(
-                "Choose an administrator password between 12 and 128 characters."
-            )
-        if not isinstance(code, str):
-            raise ValueError(
-                "Enter the setup code from config/portal/setup-code on your server."
-            )
+        name = account_username(data)
+        password = data.get("password")
+        if not isinstance(password, str) or not 1 <= len(password) <= 128:
+            raise ValueError("Enter an administrator password of up to 128 characters.")
         with store.lock:
             if store.data["password_hash"]:
                 return jsonify(
                     error="This panel has already been set up. Sign in instead."
                 ), 409
-            if not hmac.compare_digest(
-                hashlib.sha256(code.strip().encode()).hexdigest(),
-                store.data["claim_hash"],
-            ):
-                return jsonify(
-                    error="The setup code does not match. Read config/portal/setup-code on your server."
-                ), 403
             store.data.update(
-                password_hash=generate_password_hash(password), claim_hash=None
+                username=name, password_hash=generate_password_hash(password)
             )
             store.save()
-            (store.directory / "setup-code").unlink(missing_ok=True)
         session.clear()
         session.update(
             auth_version=store.data["auth_version"], csrf=secrets.token_urlsafe(32)
@@ -207,13 +202,17 @@ def create_app(settings=None):
         limited = rate_limit()
         if limited:
             return limited
-        password = body().get("password")
+        data = body()
+        name = account_username(data)
+        password = data.get("password")
         if not isinstance(password, str) or len(password) > 128:
             raise ValueError("Enter your administrator password.")
-        if not store.data["password_hash"] or not check_password_hash(
-            store.data["password_hash"], password
+        if (
+            not store.data["password_hash"]
+            or name != store.data["username"]
+            or not check_password_hash(store.data["password_hash"], password)
         ):
-            return jsonify(error="The password does not match."), 403
+            return jsonify(error="The username or password does not match."), 403
         session.clear()
         session.update(
             auth_version=store.data["auth_version"], csrf=secrets.token_urlsafe(32)
@@ -235,11 +234,11 @@ def create_app(settings=None):
         if (
             not isinstance(current, str)
             or not isinstance(new, str)
-            or not 12 <= len(new) <= 128
+            or not 1 <= len(new) <= 128
             or len(current) > 128
         ):
             raise ValueError(
-                "Enter your current password and a new password of 12–128 characters."
+                "Enter your current password and a new password of up to 128 characters."
             )
         with store.lock:
             if not check_password_hash(store.data["password_hash"], current):
@@ -292,6 +291,8 @@ def create_app(settings=None):
         value = {"url": validate_url(data.get("url", default_url(service)))}
         public = data.get("public_url", "")
         value["public_url"] = validate_url(public) if public else ""
+        if SERVICES[service].get("auth") == "none":
+            return value
         if service == "qbittorrent":
             for name in ("username", "password"):
                 candidate = data.get(name) or previous.get(name, "")

@@ -75,11 +75,16 @@ class Client:
         )
         self.prefix = "/api/v1" if service == "prowlarr" else "/api/v3"
 
-    def request(self, path, method="GET", payload=None, form=None, raw=False):
+    def request(
+        self, path, method="GET", payload=None, form=None, raw=False, with_status=False
+    ):
         headers = {"Accept": "application/json", "User-Agent": "Media-Stack/1"}
         key = self.config.get("api_key", "")
         if key:
-            headers["X-Emby-Token" if self.service == "jellyfin" else "X-Api-Key"] = key
+            if self.service == "jellyfin":
+                headers["Authorization"] = "MediaBrowser Token=" + json.dumps(key)
+            else:
+                headers["X-Api-Key"] = key
         body = None
         if payload is not None:
             body = json.dumps(payload).encode()
@@ -102,7 +107,8 @@ class Client:
                     "The app returned too much data. Open the app to inspect its library."
                 )
             if raw:
-                return data.decode("utf-8")
+                value = data.decode("utf-8")
+                return (response.status, value) if with_status else value
             return json.loads(data) if data else None
         except urllib.error.HTTPError as error:
             error.close()
@@ -135,7 +141,7 @@ class Client:
 
     def login(self):
         if self.service == "qbittorrent":
-            result = self.request(
+            status, result = self.request(
                 "/api/v2/auth/login",
                 method="POST",
                 form={
@@ -143,14 +149,25 @@ class Client:
                     "password": self.config.get("password", ""),
                 },
                 raw=True,
+                with_status=True,
             )
-            if result.strip() != "Ok.":
+            if status != 204 and result.strip() != "Ok.":
                 raise ServiceError(
                     "qBittorrent rejected the login. Check the username and password."
                 )
 
     def test(self):
         self.login()
+        if self.service == "gluetun":
+            self.request("/", raw=True)
+            return "VPN healthy"
+        if self.service == "dispatcharr":
+            info = self.request("/api/core/version/")
+            if not isinstance(info, dict) or not info.get("version"):
+                raise ServiceError(
+                    "Dispatcharr did not return a valid version response."
+                )
+            return str(info["version"])
         if self.service == "qbittorrent":
             return self.request("/api/v2/app/version", raw=True).strip()
         if self.service == "jellyfin":
@@ -257,9 +274,8 @@ class Client:
 
 
 def default_url(service):
-    host = "gluetun" if service == "qbittorrent" else service
     return os.environ.get(
-        f"{service.upper()}_URL", f"http://{host}:{SERVICES[service]['port']}"
+        f"{service.upper()}_URL", f"http://{service}:{SERVICES[service]['port']}"
     )
 
 
@@ -303,6 +319,13 @@ def config_for(store, service, directory):
 
 def snapshots(store, directory):
     def read(service):
+        if service == "gluetun" and os.environ.get("VPN_ENABLED") == "false":
+            return {
+                "id": service,
+                "status": "disabled",
+                "message": "VPN switched off. Downloads use the normal connection when enabled.",
+                "metrics": {},
+            }
         try:
             config = config_for(store, service, directory)
             if not config:
@@ -321,5 +344,5 @@ def snapshots(store, directory):
                 "metrics": {},
             }
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=len(SERVICES)) as pool:
         return list(pool.map(read, SERVICES))

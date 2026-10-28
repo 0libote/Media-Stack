@@ -1,0 +1,33 @@
+# Add after compose.downloads.direct.yaml to route only qBittorrent through Gluetun.
+services:
+  gluetun:
+    image: qmcgaw/gluetun:v3.41.3
+    restart: unless-stopped
+    stop_grace_period: 60s
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      VPN_SERVICE_PROVIDER: custom
+      VPN_TYPE: wireguard
+      FIREWALL_INPUT_PORTS: "8080"
+      HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
+    networks:
+      default:
+        aliases: [qbittorrent]
+    volumes:
+      - ./config/gluetun:/gluetun
+      - ./secrets/wg0.conf:/gluetun/wireguard/wg0.conf:ro
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8080:8080"
+
+
+  qbittorrent:
+    ports: !reset []
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true

@@ -9,3 +9,6 @@ __pycache__/
 .DS_Store
 /backups/
 .venv/
+/compose.host.yaml
+/compose.vpn.host.yaml
+/.vpn-*

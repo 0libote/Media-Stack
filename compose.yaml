@@ -2,7 +2,14 @@ name: media-stack
 
 x-arr: &arr
   restart: unless-stopped
-  environment:
+  stop_grace_period: 60s
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS --max-time 5 http://127.0.0.1:$${HEALTH_PORT}/ping >/dev/null"]
+    interval: 30s
+    timeout: 10s
+    start_period: 60s
+    retries: 3
+  environment: &arr-environment
     PUID: ${PUID:-1000}
     PGID: ${PGID:-1000}
     TZ: ${TZ:-Etc/UTC}
@@ -11,10 +18,12 @@ services:
   portal:
     build: .
     restart: unless-stopped
+    stop_grace_period: 60s
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       DATA_HOST_PATH: ${DATA_DIR:-./data}
       DOWNLOADS_ENABLED: ${DOWNLOADS_ENABLED:-false}
+      VPN_ENABLED: ${VPN_ENABLED:-auto}
       PANEL_COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-0}
       PANEL_TRUST_PROXY: ${PANEL_TRUST_PROXY:-0}
     ports:
@@ -41,6 +50,7 @@ services:
   jellyfin:
     image: jellyfin/jellyfin:latest
     restart: unless-stopped
+    stop_grace_period: 60s
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       TZ: ${TZ:-Etc/UTC}
@@ -60,6 +70,13 @@ services:
     image: ghcr.io/seerr-team/seerr:latest
     init: true
     restart: unless-stopped
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5055/api/v1/status', r => {r.resume(); process.exit(r.statusCode === 200 ? 0 : 1)}).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
     environment:
       TZ: ${TZ:-Etc/UTC}
       LOG_LEVEL: info
@@ -71,6 +88,9 @@ services:
 
   radarr:
     <<: *arr
+    environment:
+      <<: *arr-environment
+      HEALTH_PORT: "7878"
     image: lscr.io/linuxserver/radarr:latest
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:7878:7878"
@@ -84,6 +104,9 @@ services:
 
   sonarr:
     <<: *arr
+    environment:
+      <<: *arr-environment
+      HEALTH_PORT: "8989"
     image: lscr.io/linuxserver/sonarr:latest
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8989:8989"
@@ -97,11 +120,41 @@ services:
 
   prowlarr:
     <<: *arr
+    environment:
+      <<: *arr-environment
+      HEALTH_PORT: "9696"
     image: lscr.io/linuxserver/prowlarr:latest
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:9696:9696"
     volumes:
       - ./config/prowlarr:/config
 
+  dispatcharr:
+    image: ghcr.io/dispatcharr/dispatcharr:latest
+    restart: unless-stopped
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:9191/api/core/version/', timeout=5))['version']"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      DISPATCHARR_ENV: aio
+      REDIS_HOST: localhost
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      DISPATCHARR_LOG_LEVEL: info
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:9191:9191"
+    volumes:
+      - dispatcharr-data:/data
+      - type: bind
+        source: ${DATA_DIR:-./data}/recordings
+        target: /data/recordings
+        bind:
+          create_host_path: false
+
 volumes:
   seerr-config:
+  dispatcharr-data:

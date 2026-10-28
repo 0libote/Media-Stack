@@ -548,6 +548,14 @@ main {
   background: #e9f0fb;
   color: #4a75af;
 }
+.app-mark[data-app="gluetun"] {
+  background: #e5f2ed;
+  color: #33755b;
+}
+.app-mark[data-app="dispatcharr"] {
+  background: #f4ebf8;
+  color: #87519b;
+}
 .service-name {
   min-width: 0;
   flex: 1;

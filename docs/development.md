@@ -16,7 +16,7 @@ PANEL_KEY_DIR=/tmp/media-stack-dev/keys \
 .venv/bin/gunicorn --bind 127.0.0.1:8088 --workers 1 --threads 8 'control.app:create_app()'
 ```
 
-Read `/tmp/media-stack-dev/state/setup-code` to claim this development panel. Use local test instances or deliberately configured app endpoints. Settings changes use their actual APIs; don’t connect production credentials when testing writes.
+Open `http://localhost:8088` and choose a username and password for this development panel. Use local test instances or deliberately configured app endpoints. Settings changes use their actual APIs; don’t connect production credentials when testing writes.
 
 Keep one Gunicorn worker: settings, the snapshot cache, review tokens, and login rate limits are process-local. Threads handle overlapping requests. Container restarts discard pending reviews and reload persistent settings.
 
@@ -27,7 +27,8 @@ Keep one Gunicorn worker: settings, the snapshot cache, review tokens, and login
 node --check portal/app.js
 node --test tests/frontend.test.mjs
 docker compose --env-file .env.example -f compose.yaml config --quiet
-docker compose --env-file .env.example -f compose.yaml -f compose.downloads.yaml config --quiet
+docker compose --env-file .env.example -f compose.yaml -f compose.downloads.direct.yaml config --quiet
+docker compose --env-file .env.example -f compose.yaml -f compose.downloads.direct.yaml -f compose.vpn.yaml config --quiet
 .venv/bin/python tests/check_compose.py
 docker build -t media-stack-panel:test .
 .venv/bin/python tests/check_container.py

@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep iptv-org channels in UK-first order
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/DATA/Projects/Media-Stack
+ExecStart=/bin/sh -c '/usr/bin/docker exec -i media-stack-dispatcharr-1 python - < ops/iptv_org_layout.py'
+ExecStart=/bin/sh -c '/usr/bin/docker exec -i media-stack-dispatcharr-1 python - < ops/iptv_org_logos.py'
+ExecStart=/bin/sh -c '/usr/bin/docker exec -i media-stack-dispatcharr-1 python - < ops/dispatcharr_playback.py'
+ExecStart=/usr/bin/python3 /DATA/Projects/Media-Stack/ops/update_uk_guide.py --output /DATA/AppData/jellyfin/config/media-stack-uk-guide.xml
+TimeoutStartSec=1800

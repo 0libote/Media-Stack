@@ -8,6 +8,8 @@ const names = {
   sonarr: "Sonarr",
   prowlarr: "Prowlarr",
   qbittorrent: "qBittorrent",
+  gluetun: "Gluetun",
+  dispatcharr: "Dispatcharr",
 };
 const marks = {
   jellyfin: "Jf",
@@ -16,6 +18,8 @@ const marks = {
   sonarr: "So",
   prowlarr: "Pr",
   qbittorrent: "qB",
+  gluetun: "Gl",
+  dispatcharr: "Di",
 };
 const routes = {
   overview: "Overview",
@@ -176,6 +180,7 @@ function statusBadge(item) {
       online: "Connected",
       unavailable: "Needs attention",
       unlinked: "Not linked",
+      disabled: "Off",
     }[status] || "Unknown";
   return el("span", { class: "service-status", "data-status": status }, label);
 }
@@ -235,7 +240,7 @@ function renderOverview() {
           "p",
           {},
           linked
-            ? `${linked} of 6 apps linked. Downloads are optional.`
+            ? `${linked} of ${state.connections.length} apps linked. Downloads and VPN are optional.`
             : "Connect the installed apps, choose your folders, then review the links between them.",
         ),
       ),
@@ -311,7 +316,7 @@ function renderOverview() {
           ),
         );
       }
-      actions.append(
+      if (config.browser !== false) actions.append(
         el(
           "a",
           {
@@ -546,9 +551,10 @@ function renderEditor() {
   $("connection-mark").textContent = marks[config.id];
   $("connection-mark").dataset.app = config.id;
   $("connection-open").href = appURL(config.id);
+  $("connection-open").hidden = config.browser === false;
   $("service-url").value = config.url;
   $("public-url").value = config.public_url;
-  $("key-fields").hidden = config.id === "qbittorrent";
+  $("key-fields").hidden = config.id === "qbittorrent" || config.auth === "none";
   $("qbit-fields").hidden = config.id !== "qbittorrent";
   $("key-source").querySelector("[value=local]").disabled = ![
     "radarr",
@@ -704,14 +710,10 @@ async function initialize() {
         ? "Set up your control panel"
         : "Welcome back";
       $("auth-description").textContent = state.needsSetup
-        ? "Create an administrator password to manage your apps and library settings."
+        ? "Choose an administrator username and password to manage your apps and library settings."
         : "Sign in to manage your Media Stack.";
-      $("setup-code-field").hidden = !state.needsSetup;
       $("confirm-password-field").hidden = !state.needsSetup;
-      $("password-help").hidden = !state.needsSetup;
-      $("setup-code").required = state.needsSetup;
       $("auth-confirm").required = state.needsSetup;
-      $("auth-password").minLength = state.needsSetup ? 12 : 1;
       $("auth-password").autocomplete = state.needsSetup
         ? "new-password"
         : "current-password";
@@ -748,8 +750,8 @@ $("auth-form").addEventListener("submit", async (event) => {
           {
             method: "POST",
             body: {
+              username: $("auth-username").value.trim(),
               password: $("auth-password").value,
-              code: $("setup-code").value.trim(),
             },
           },
         );
