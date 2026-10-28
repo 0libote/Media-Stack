@@ -176,6 +176,11 @@ class Operations:
                         "Existing qBittorrent connection kept; its category and credentials are unchanged",
                     )
             category = "movies" if target == "radarr" else "tv"
+            category_status, _ = self.action("category:" + category, options)
+            if execute and category_status != "exists":
+                raise ServiceError(
+                    "The download category changed since review. Review setup again before adding the client."
+                )
             values = {
                 "host": url.hostname,
                 "port": port,
