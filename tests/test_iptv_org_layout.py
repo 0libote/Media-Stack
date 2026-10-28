@@ -21,14 +21,6 @@ class IPTVLayoutTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             layout.uk_feed_ids("<html>Unavailable</html>")
 
-    def test_uk_numbers_preserve_existing_slots_and_stay_before_international(self):
-        used = {1, 2, 3, 1000}
-        self.assertEqual(layout.choose_number("Channel4.uk@UK", used), 4)
-        self.assertEqual(layout.choose_number("BBCOne.uk@London", used), 1001)
-        self.assertEqual(layout.choose_number("Another.uk@SD", used), 1002)
-        self.assertEqual(layout.choose_number("Channel4.uk@HD", used), 1003)
-        self.assertTrue(all(number < 10000 for number in used))
-
     def test_guide_matching_prefers_region_and_accepts_hd_identifiers(self):
         available = {"BBCOneSouth.uk", "BBCOne.uk", "BBCThreeHD.uk"}
         self.assertEqual(
@@ -62,3 +54,43 @@ class IPTVLayoutTests(unittest.TestCase):
         available = {"Channel4South.uk", "5.uk", "QVCUK.uk", "GreatMovies.uk"}
         for feed, expected in [("Channel4.uk@UK", "Channel4South.uk"), ("Channel5.uk@SD", "5.uk"), ("QVC.uk@SD", "QVCUK.uk"), ("GREATmovies.uk@UK", "GreatMovies.uk")]:
             self.assertEqual(layout.guide_id(feed, available), expected)
+
+    def test_curated_numbers_skip_occupied_primary_and_regional_slots(self):
+        records = [
+            {"id": 1, "tvg_id": "BBCOne.uk", "name": "BBC One", "auto_created_by_id": 3},
+            {"id": 2, "tvg_id": "Other.uk", "name": "Other", "auto_created_by_id": 3},
+        ]
+        plan, _ = layout.curated_uk(records, reserved={1, 10000})
+        numbers = [item["channel_number"] for item in plan.values()]
+        self.assertEqual(len(set(numbers + [1, 10000])), 4)
+        self.assertLess(plan[1]["channel_number"], 10000)
+        self.assertGreaterEqual(plan[2]["channel_number"], 10000)
+
+    def test_managed_plan_keeps_manual_edits_and_curates_new_imports_on_reruns(self):
+        records = [
+            {"id": 1, "tvg_id": "BBCOne.uk", "name": "BBC One", "auto_created_by_id": 3},
+            {"id": 2, "tvg_id": "Other.uk", "name": "Other", "auto_created_by_id": 3},
+        ]
+        # An existing manual override is protected even before ownership state exists.
+        overrides = {1: {"channel_number": 3, "name": "My BBC", "channel_group_id": 99}, 2: {}}
+        plan, primary, owned = layout.managed_uk_plan(records, overrides, {}, (10, 20), {10000})
+        self.assertEqual(plan[1], overrides[1])
+        self.assertEqual(plan[2]["channel_number"], 10001)
+        state = {"primary_ids": list(primary), "managed": owned}
+        records += [
+            {"id": 3, "tvg_id": "STVCentral.uk", "name": "STV", "auto_created_by_id": 3},
+            {"id": 4, "tvg_id": "New.uk", "name": "New", "auto_created_by_id": 3},
+        ]
+        # A user moves the existing extra into the normally allocated regional slot.
+        plan[2]["channel_number"] = 10000
+        plan, primary, owned = layout.managed_uk_plan(records, plan, state, (10, 20))
+        self.assertEqual(plan[1], overrides[1])
+        self.assertEqual(plan[2]["channel_number"], 10000)
+        self.assertEqual(plan[3]["channel_group_id"], 10)
+        self.assertLess(plan[3]["channel_number"], 10000)
+        self.assertNotEqual(plan[3]["channel_number"], 3)
+        self.assertEqual(plan[4]["channel_group_id"], 20)
+        self.assertGreaterEqual(plan[4]["channel_number"], 10000)
+        self.assertEqual(len({p["channel_number"] for p in plan.values()}), 4)
+        again, _, _ = layout.managed_uk_plan(records, plan, {"primary_ids": list(primary), "managed": owned}, (10, 20))
+        self.assertEqual(again, plan)

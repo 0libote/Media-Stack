@@ -10,38 +10,6 @@ import re
 import urllib.request
 from pathlib import Path
 
-UK_NUMBERS = {
-    "BBCOne.uk": 1,
-    "BBCTwo.uk": 2,
-    "Channel4.uk": 4,
-    "Channel5.uk": 5,
-    "ITV2.uk": 6,
-    "BBCFour.uk": 9,
-    "ITV3.uk": 10,
-    "E4.uk": 13,
-    "QVC.uk": 16,
-    "More4.uk": 18,
-    "5USA.uk": 21,
-    "TJC.uk": 22,
-    "BBCThree.uk": 23,
-    "ITV4.uk": 26,
-    "GREATromance.uk": 52,
-    "ThatsTV.uk": 56,
-    "GREATmovies.uk": 62,
-    "Blaze.uk": 64,
-    "TBNUK.uk": 66,
-    "TrueCrime.uk": 67,
-    "TalkingPicturesTV.uk": 82,
-    "CBBC.uk": 201,
-    "CBeebies.uk": 202,
-    "Pop.uk": 205,
-    "TinyPop.uk": 206,
-    "BBCNews.uk": 231,
-    "BBCParliament.uk": 232,
-    "SkyNews.uk": 233,
-    "GBNews.uk": 236,
-}
-
 # Available DTT services, using Freeview's England order (22 October 2026).
 # Regional alternatives and duplicate feeds remain in the catalogue after these.
 UK_STATIONS = [
@@ -87,7 +55,8 @@ UK_STATIONS = [
 ]
 
 
-def curated_uk(records, previous_primary=()):
+def curated_uk(records, previous_primary=(), reserved=()):
+    used = set(reserved)
     primary = {}
     for number, name, bases in UK_STATIONS:
         candidates = [
@@ -103,12 +72,46 @@ def curated_uk(records, previous_primary=()):
             "Geo-blocked" in r["name"],
             r["id"],
         ))
+        if number in used:
+            number = 1000
+            while number in used:
+                number += 1
+            if number >= 10000:
+                raise ValueError("The UK channel-number range is full.")
+        used.add(number)
         primary[chosen["id"]] = {"channel_number": number, "name": name}
     extra = sorted((r for r in records if r["id"] not in primary), key=lambda r: (r["name"].casefold(), r["id"]))
     plan = dict(primary)
-    for number, record in enumerate(extra, 10000):
+    number = 10000
+    for record in extra:
+        while number in used:
+            number += 1
         plan[record["id"]] = {"channel_number": number, "name": "[UK] " + record["name"]}
+        used.add(number)
+        number += 1
     return plan, set(primary)
+
+
+def managed_uk_plan(records, overrides, state, groups, reserved=()):
+    reserved = set(reserved)
+    previous = state.get("managed", {})
+    for pk, current in overrides.items():
+        number = current.get("channel_number")
+        if number is not None and number != previous.get(str(pk), {}).get("channel_number"):
+            reserved.add(number)
+    plan, primary = curated_uk(records, state.get("primary_ids", []), reserved)
+    owned = {}
+    for pk, desired in plan.items():
+        desired["channel_group_id"] = groups[0] if pk in primary else groups[1]
+        current = overrides.get(pk, {})
+        old = previous.get(str(pk), {})
+        owned[str(pk)] = dict(old)
+        for field, value in desired.items():
+            if current.get(field) is None or current[field] == old.get(field):
+                owned[str(pk)][field] = value
+            else:
+                desired[field] = current[field]
+    return plan, primary, owned
 
 
 def uk_feed_ids(playlist):
@@ -125,18 +128,6 @@ def is_uk(feed_id, uk_ids, metadata):
         feed_id in uk_ids
         or metadata.get(feed_id.split("@")[0], {}).get("country") == "UK"
     )
-
-
-def choose_number(feed_id, used):
-    number = UK_NUMBERS.get(feed_id.split("@")[0], 1000)
-    if number in used:
-        number = 1000
-    while number in used:
-        number += 1
-    if number >= 10000:
-        raise ValueError("The UK channel-number range is full.")
-    used.add(number)
-    return number
 
 
 def guide_id(feed_id, available):
@@ -266,16 +257,6 @@ def main():
         print("Native channel sync:", result, flush=True)
 
     channels = list(Channel.objects.filter(auto_created_by=account).order_by("tvg_id"))
-    used = set(
-        Channel.objects.exclude(auto_created_by=account).values_list(
-            "channel_number", flat=True
-        )
-    )
-    used.update(
-        ChannelOverride.objects.exclude(channel_number=None).values_list(
-            "channel_number", flat=True
-        )
-    )
     epg = {
         item.tvg_id: item
         for item in EPGData.objects.filter(
@@ -297,12 +278,6 @@ def main():
             uk_channels.add(channel.id)
             override, _ = ChannelOverride.objects.get_or_create(channel=channel)
             fields = []
-            if override.channel_number is None:
-                override.channel_number = choose_number(channel.tvg_id, used)
-                fields.append("channel_number")
-            if override.channel_group_id is None:
-                override.channel_group = uk_group
-                fields.append("channel_group")
             matched = guide_id(channel.tvg_id, epg)
             if matched:
                 mapped += 1
@@ -312,24 +287,29 @@ def main():
             if fields:
                 override.save(update_fields=fields)
         uk_records = list(Channel.objects.filter(id__in=uk_channels).values("id", "tvg_id", "name", "auto_created_by_id"))
-        uk_plan, primary_ids = curated_uk(uk_records, uk_state.get("primary_ids", []))
         ChannelOverride.objects.bulk_create(
             [ChannelOverride(channel_id=pk) for pk in uk_channels], ignore_conflicts=True, batch_size=500
         )
-        uk_overrides = {o.channel_id: o for o in ChannelOverride.objects.filter(channel_id__in=uk_channels)}
+        all_overrides = {o.channel_id: o for o in ChannelOverride.objects.all()}
+        uk_overrides = {pk: all_overrides[pk] for pk in uk_channels}
         main_group, _ = ChannelGroup.objects.get_or_create_manual(name="UK / Freeview")
         extra_group, _ = ChannelGroup.objects.get_or_create_manual(name="UK / Regional and other")
-        owned_uk = {}
+        reserved = {
+            all_overrides[c.id].channel_number
+            if c.id in all_overrides and all_overrides[c.id].channel_number is not None
+            else c.channel_number
+            for c in Channel.objects.exclude(id__in=uk_channels)
+        }
+        uk_plan, primary_ids, owned_uk = managed_uk_plan(
+            uk_records,
+            {pk: {field: getattr(o, field) for field in ("channel_number", "name", "channel_group_id")}
+             for pk, o in uk_overrides.items()},
+            uk_state, (main_group.id, extra_group.id), reserved,
+        )
         for pk, desired in uk_plan.items():
-            desired = dict(desired, channel_group_id=main_group.id if pk in primary_ids else extra_group.id)
             override = uk_overrides[pk]
-            previous = uk_state.get("managed", {}).get(str(pk), {})
-            owned_uk[str(pk)] = dict(previous)
             for field, value in desired.items():
-                current = getattr(override, field)
-                if not uk_state or current is None or current == previous.get(field):
-                    setattr(override, field, value)
-                    owned_uk[str(pk)][field] = value
+                setattr(override, field, value)
             matched = guide_id(next(r["tvg_id"] or "" for r in uk_records if r["id"] == pk), epg)
             if matched and override.epg_data_id is None:
                 override.epg_data = epg[matched]
