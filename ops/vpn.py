@@ -224,9 +224,10 @@ def switch(enabled):
         ["gluetun"] if "gluetun" in old_config["services"] else []
     )
     subprocess.run(["docker", "compose", "stop", *stop], check=True)
-    # Read after shutdown so qBittorrent's final settings flush is preserved.
-    old_preferences = path.read_text() if path.exists() else None
+    old_preferences = None
     try:
+        # Read after shutdown so qBittorrent's final settings flush is preserved.
+        old_preferences = path.read_text() if path.exists() else None
         if old_preferences is not None:
             atomic_write(path, interface_settings(old_preferences, enabled))
         if dashboard:

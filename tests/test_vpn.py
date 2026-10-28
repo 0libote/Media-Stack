@@ -149,6 +149,42 @@ class VPNTests(unittest.TestCase):
             self.assertIn("Session\\DefaultSavePath=/media/Downloads", content)
             self.assertIn("Password_PBKDF2=keep-this", content)
 
+    def test_preferences_read_failure_restarts_the_original_stack(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            env = root / ".env"
+            original = "COMPOSE_FILE=compose.yaml:compose.downloads.direct.yaml:compose.vpn.yaml\nVPN_ENABLED=true\n"
+            env.write_text(original)
+            preferences = root / "qBittorrent/qBittorrent.conf"
+            preferences.parent.mkdir()
+            preferences.write_text("unchanged preferences")
+            config = {"services": {"gluetun": {}, "qbittorrent": {
+                "volumes": [{"source": str(root), "target": "/config"}],
+            }}}
+            read_text = Path.read_text
+            calls = []
+
+            def read(path, *args, **kwargs):
+                if path == preferences:
+                    self.assertEqual(calls[-1][2], "stop")
+                    raise PermissionError("preferences unreadable")
+                return read_text(path, *args, **kwargs)
+
+            with (
+                patch.object(vpn, "ROOT", root),
+                patch.object(vpn, "check_media_disk"),
+                patch.object(vpn.subprocess, "check_output", return_value=json.dumps(config)),
+                patch.object(vpn.subprocess, "run", side_effect=lambda args, **kw: calls.append(args)),
+                patch.object(Path, "read_text", read),
+            ):
+                with self.assertRaisesRegex(PermissionError, "preferences unreadable"):
+                    vpn.switch(False)
+            self.assertEqual(calls[-1][2:4], ["up", "-d"])
+            self.assertEqual(calls[-1][-2:], ["qbittorrent", "portal"])
+            self.assertEqual(env.read_text(), original)
+            self.assertEqual(preferences.read_text(), "unchanged preferences")
+            self.assertFalse(list(root.glob(".vpn-*")))
+
     def test_failed_start_restores_original_mode_and_preferences(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
